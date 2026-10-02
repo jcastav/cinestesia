@@ -4,19 +4,19 @@ Estado factual del repositorio. Nunca declarar terminado algo que no fue verific
 
 ## Versión actual
 
-v0.1.0-alpha — **EN DESARROLLO** (sin releases; ninguna versión cerrada).
+v0.1.0-alpha — **CERRADA** (tag `v0.1.0-alpha`, 2026-10-02). Siguiente versión del roadmap: v0.2.0-alpha (§12.6, no iniciada).
 
 ## Último slice completado
 
-Ninguno.
+**v0.1.0-alpha — Primer Vertical Slice** (§12.5): los 7 criterios de salida cumplidos y verificados (reproducción visual confirmada por persona el 2026-10-02).
 
 ## Trabajo actual
 
-Fase E (frontend) completada y verificada: home con destacados desde la API, página de detalle `/media/[id]` con Player Hls.js, manejo de error con API caída (`role="alert"`), 404 para contenido inexistente. `typecheck`/`lint`/`build` en verde.
+Ninguno en curso. El repositorio queda en estado verificado tras el cierre de v0.1.0-alpha.
 
 ## Trabajo pendiente inmediato
 
-Cierre de v0.1.0-alpha: verificación manual de reproducción en navegador (DoD 5–6, requiere persona), revisión final y tag.
+Decidir con humano el inicio de v0.2.0-alpha — Catálogo mínimo (§12.6): `MediaItem` completo, estados de publicación, listado básico, repositorios y DTOs de Catalog.
 
 ## Decisiones recientes
 
@@ -47,7 +47,7 @@ Cierre de v0.1.0-alpha: verificación manual de reproducción en navegador (DoD 
 
 ## Tests ejecutados
 
-Ningún test unitario todavía (sin framework definido; los tests de funcionalidad llegan tras la funcionalidad — AGENTS.md §8). Verificación acumulada: `pnpm typecheck`, `pnpm lint`, `pnpm build` en verde; `db:seed` idempotente + `db:verify` (`mediaItems: 1, sources: 1`); smoke HTTP de los 4 endpoints + 404/400 + `X-Request-Id` + preflight CORS; smoke end-to-end del frontend (home con destacados y enlace, detalle con título/sinopsis/`<video>`, 404 para id inexistente, `role="alert"` cuando la API está caída). **Pendiente:** reproducción visual del video en navegador (DoD 5–6, verificación humana).
+Ningún test unitario todavía (sin framework definido; los tests de funcionalidad llegan tras la funcionalidad — AGENTS.md §8). Verificación de v0.1.0-alpha: `pnpm typecheck`, `pnpm lint`, `pnpm build` en verde; `db:seed` idempotente + `db:verify` (`mediaItems: 1, sources: 1`); smoke HTTP de los 4 endpoints + 404/400 + `X-Request-Id` + preflight CORS; smoke end-to-end del frontend (home con destacados y enlace, detalle con título/sinopsis/`<video>`, 404 para id inexistente, `role="alert"` con API caída); **reproducción visual del video confirmada por persona (2026-10-02)**.
 
 ## Último commit
 

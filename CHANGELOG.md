@@ -9,14 +9,6 @@ y el proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/spec/v2
 
 ### Added
 
-- Estructura de monorepo con pnpm workspaces: `apps/web` (Next.js 15 + TypeScript + Tailwind 4), `apps/api` (Fastify 5) y `packages/shared` (contratos iniciales de la Sección 8).
-- Scripts raíz de verificación: `pnpm dev`, `pnpm build`, `pnpm typecheck`, `pnpm lint`.
-- Endpoint de verificación `GET /v1/health` en la API.
-- Persistencia mínima en Supabase (Postgres) con Drizzle ORM: esquema `media_items` + `sources`, migración v1 aplicada y seed con contenido de prueba (HLS de demo de Mux).
-- Endpoints de contenido según Sección 8: `GET /v1/catalog/featured` (§8.12), `GET /v1/media/{mediaId}` (§8.13), `GET /v1/media/{mediaId}/sources` (§8.16) y `GET /v1/media/{mediaId}/playback` (temporal, ver BACKLOG).
-- Contrato de error `{error:{code,message,requestId}}` (§8.7), envoltura `{data,requestId}` (§8.6), correlación `X-Request-Id` (§8.50) y CORS restringido a `WEB_ORIGIN`.
-- Frontend: home con contenido destacado desde `GET /v1/catalog/featured`, página de detalle `/media/[id]` y componente Player con Hls.js (init/destroy, controles nativos, manejo de errores fatales de reproducción y mensaje de error cuando la API no responde).
-
 ### Changed
 
 ### Deprecated
@@ -26,3 +18,21 @@ y el proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/spec/v2
 ### Fixed
 
 ### Security
+
+## [0.1.0-alpha] - 2026-10-02
+
+Primer vertical slice: reproducción de un contenido audiovisual (§12.5).
+
+### Added
+
+- Estructura de monorepo con pnpm workspaces: `apps/web` (Next.js 15 + TypeScript + Tailwind 4), `apps/api` (Fastify 5) y `packages/shared` (contratos iniciales de la Sección 8).
+- Scripts raíz de verificación: `pnpm dev`, `pnpm build`, `pnpm typecheck`, `pnpm lint`.
+- Endpoint de verificación `GET /v1/health` en la API.
+- Persistencia mínima en Supabase (Postgres) con Drizzle ORM: esquema `media_items` + `sources`, migración v1 aplicada y seed con contenido de prueba (HLS de demo de Mux).
+- Endpoints de contenido según Sección 8: `GET /v1/catalog/featured` (§8.12), `GET /v1/media/{mediaId}` (§8.13), `GET /v1/media/{mediaId}/sources` (§8.16) y `GET /v1/media/{mediaId}/playback` (temporal, ver BACKLOG).
+- Contrato de error `{error:{code,message,requestId}}` (§8.7), envoltura `{data,requestId}` (§8.6), correlación `X-Request-Id` (§8.50) y CORS restringido a `WEB_ORIGIN`.
+- Frontend: home con contenido destacado desde `GET /v1/catalog/featured`, página de detalle `/media/[id]` y componente Player con Hls.js (init/destroy, controles nativos, manejo de errores fatales de reproducción y mensaje de error cuando la API no responde).
+
+### Security
+
+- Credenciales de base de datos y origen permitido solo en `.env`/`.env.local` (gitignored); `.env.example` sin valores; verificado por grep que ningún archivo trackeado contiene credenciales.
