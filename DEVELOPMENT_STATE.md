@@ -12,11 +12,11 @@ Ninguno.
 
 ## Trabajo actual
 
-Fase B (estructura del monorepo) completada y verificada: `pnpm typecheck`, `pnpm lint` y `pnpm build` en verde; `GET /v1/health` responde OK.
+Fase C (persistencia) completada y verificada: migración v1 aplicada en Supabase (`media_items` + `sources`), seed idempotente con contenido de prueba, lectura real verificada (`mediaItems: 1, sources: 1`), `typecheck`/`lint`/`build` en verde.
 
 ## Trabajo pendiente inmediato
 
-Fase C: persistencia mínima en Supabase (Drizzle + `media_items` + seed). Plan completo de v0.1.0-alpha en `CURRENT_TASK.md`.
+Fase D: endpoints de contenido de la API. Plan completo de v0.1.0-alpha en `CURRENT_TASK.md`.
 
 ## Decisiones recientes
 
@@ -31,15 +31,19 @@ Fase C: persistencia mínima en Supabase (Drizzle + `media_items` + seed). Plan 
 - `packages/shared` es TypeScript puro sin paso de build (los consumidores lo transpilan: `transpilePackages` en Next, `tsx` en la API).
 - La API se ejecuta con `tsx` (`build` = verificación de tipos, sin emisión a `dist`); si en el futuro se necesita un artefacto emitido, será una decisión explícita.
 - Lint con ESLint 9 flat config compartido en la raíz (sin `eslint-plugin-next` todavía).
+- Persistencia v0.1: conexión mediante **Session pooler de Supabase** (puerto 6543, `sslmode=require`) con el driver `postgres` (porsager, `prepare: false`) y Drizzle ORM. Credenciales solo en `apps/api/.env` (gitignored; `.env.example` sin valores).
+- La referencia de reproducción vive en una tabla **`sources` mínima** (`id`, `media_item_id` FK cascade, `playback_url`, `is_active`) — decisión humana sobre §12.5; difiere del DDL de §7.37 y deberá alinearse en v0.4 (registrado en `BACKLOG.md`).
+- Seed de prueba: contenido `big-buck-bunny` con stream HLS público `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`.
+- `media_type` sigue la lista de §7.17 en mayúsculas (`MOVIE`, `SERIES`, …), también en `packages/shared`.
 
 ## Problemas conocidos
 
 - `next build` avisa: "The Next.js plugin was not detected in your ESLint configuration" (no bloqueante; `eslint-config-next` pendiente de evaluar).
-- Fuente de prueba HLS autorizada pendiente de elegir y documentar.
+- La password del pooler de Supabase fue compartida en el chat; está solo en `.env` local, nunca en el repositorio. Recomendable rotarla desde el Dashboard si se desea.
 
 ## Tests ejecutados
 
-Ningún test unitario todavía (sin framework definido; los tests de funcionalidad llegan tras la funcionalidad — AGENTS.md §8). Verificación de la Fase B: `pnpm typecheck`, `pnpm lint`, `pnpm build` en verde + smoke test manual de `GET /v1/health`.
+Ningún test unitario todavía (sin framework definido; los tests de funcionalidad llegan tras la funcionalidad — AGENTS.md §8). Verificación acumulada: `pnpm typecheck`, `pnpm lint`, `pnpm build` en verde; smoke test `GET /v1/health` OK; `db:seed` idempotente + `db:verify` con lectura real (`mediaItems: 1, sources: 1`).
 
 ## Último commit
 

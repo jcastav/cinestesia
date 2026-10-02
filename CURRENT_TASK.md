@@ -96,4 +96,4 @@ Criterios transversales (§12.52 + AGENTS.md §7 y §9):
 
 ## Siguiente paso concreto
 
-Fase C: persistencia mínima en Supabase (Drizzle + migración de `media_items` + referencia de reproducción + seed).
+Fase D: endpoints de contenido (`GET /v1/catalog/featured`, `GET /v1/media/{mediaId}`) con envoltura `{data, requestId}` y error `MEDIA_NOT_FOUND`, consumiendo el esquema de la Fase C.

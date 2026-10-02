@@ -1,4 +1,12 @@
-export type MediaType = "movie" | "series";
+export type MediaType =
+  | "MOVIE"
+  | "SERIES"
+  | "DOCUMENTARY"
+  | "SHORT"
+  | "CONCERT"
+  | "CLIP"
+  | "SPECIAL"
+  | "OTHER";
 
 export interface MediaItem {
   id: string;
