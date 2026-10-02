@@ -96,4 +96,4 @@ Criterios transversales (§12.52 + AGENTS.md §7 y §9):
 
 ## Siguiente paso concreto
 
-Ejecutar la Fase B: estructura del monorepo (pnpm workspaces, `apps/web`, `apps/api`, `packages/shared`).
+Fase C: persistencia mínima en Supabase (Drizzle + migración de `media_items` + referencia de reproducción + seed).
