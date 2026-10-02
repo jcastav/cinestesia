@@ -51,9 +51,9 @@ Ningún test unitario todavía (sin framework definido; los tests de funcionalid
 
 ## Último commit
 
-`feat: persistencia minima en Supabase con Drizzle (Fase C)` (`d70011a`).
+`feat: endpoints de contenido con contrato Seccion 8 (Fase D)` (`4be3a6f`).
 
-Anteriores: `docs: registrar commit de la Fase B en DEVELOPMENT_STATE` (`5166e97`), `feat: estructura de monorepo con pnpm workspaces (Fase B)` (`df371ae`), `docs: actualizar DEVELOPMENT_STATE tras el commit inicial` (`b362433`), `chore: bootstrap de documentacion de control y especificacion paper_project` (`f98db3b`, root commit).
+Anteriores: `docs: registrar commit de la Fase C en DEVELOPMENT_STATE` (`f442996`), `feat: persistencia minima en Supabase con Drizzle (Fase C)` (`d70011a`), `docs: registrar commit de la Fase B en DEVELOPMENT_STATE` (`5166e97`), `feat: estructura de monorepo con pnpm workspaces (Fase B)` (`df371ae`), bootstrap (`f98db3b`).
 
 ## Bloqueos existentes
 
