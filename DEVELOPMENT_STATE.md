@@ -51,9 +51,9 @@ Ningún test unitario todavía (sin framework definido; los tests de funcionalid
 
 ## Último commit
 
-`feat: endpoints de contenido con contrato Seccion 8 (Fase D)` (`4be3a6f`).
+`feat: frontend con pagina de detalle y Player Hls.js (Fase E)` (`264fa4a`).
 
-Anteriores: `docs: registrar commit de la Fase C en DEVELOPMENT_STATE` (`f442996`), `feat: persistencia minima en Supabase con Drizzle (Fase C)` (`d70011a`), `docs: registrar commit de la Fase B en DEVELOPMENT_STATE` (`5166e97`), `feat: estructura de monorepo con pnpm workspaces (Fase B)` (`df371ae`), bootstrap (`f98db3b`).
+Anteriores: `docs: registrar commit de la Fase D en DEVELOPMENT_STATE` (`2f1ea81`), `feat: endpoints de contenido con contrato Seccion 8 (Fase D)` (`4be3a6f`), Fase C (`d70011a`), Fase B (`df371ae`), bootstrap (`f98db3b`).
 
 ## Bloqueos existentes
 
