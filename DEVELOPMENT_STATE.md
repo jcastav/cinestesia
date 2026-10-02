@@ -43,7 +43,9 @@ Ningún test unitario todavía (sin framework definido; los tests de funcionalid
 
 ## Último commit
 
-`chore: bootstrap de documentacion de control y especificacion paper_project` (`f98db3b`, root commit: 63 archivos — AGENTS.md, los 4 archivos de control y `paper_project/`).
+`feat: estructura de monorepo con pnpm workspaces (Fase B)` (`df371ae`).
+
+Anteriores: `docs: actualizar DEVELOPMENT_STATE tras el commit inicial` (`b362433`), `chore: bootstrap de documentacion de control y especificacion paper_project` (`f98db3b`, root commit: 63 archivos).
 
 ## Bloqueos existentes
 
