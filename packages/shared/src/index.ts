@@ -8,14 +8,47 @@ export type MediaType =
   | "SPECIAL"
   | "OTHER";
 
-export interface MediaItem {
+export interface MediaSummary {
   id: string;
   slug: string;
   title: string;
   type: MediaType;
-  synopsis?: string | null;
   posterUrl?: string | null;
+  backdropUrl?: string | null;
   releaseYear?: number | null;
+}
+
+export interface MediaDetail extends MediaSummary {
+  synopsis?: string | null;
+}
+
+export interface FeaturedSection {
+  id: string;
+  title: string;
+  items: MediaSummary[];
+}
+
+export interface FeaturedContent {
+  sections: FeaturedSection[];
+}
+
+export type SourceAvailability = "active" | "degraded" | "unavailable";
+
+export interface SourceSummary {
+  id: string;
+  label?: string;
+  language?: string;
+  quality?: string;
+  protocols?: string[];
+  availability: SourceAvailability;
+}
+
+export interface SourceList {
+  sources: SourceSummary[];
+}
+
+export interface PlaybackReference {
+  mediaId: string;
   playbackUrl: string;
 }
 
@@ -27,6 +60,8 @@ export interface ApiSuccessResponse<T> {
 
 export type ApiErrorCode =
   | "MEDIA_NOT_FOUND"
+  | "SOURCE_NOT_FOUND"
+  | "SOURCE_UNAVAILABLE"
   | "INVALID_ARGUMENT"
   | "INTERNAL_ERROR";
 

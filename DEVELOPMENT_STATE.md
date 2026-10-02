@@ -12,11 +12,11 @@ Ninguno.
 
 ## Trabajo actual
 
-Fase C (persistencia) completada y verificada: migración v1 aplicada en Supabase (`media_items` + `sources`), seed idempotente con contenido de prueba, lectura real verificada (`mediaItems: 1, sources: 1`), `typecheck`/`lint`/`build` en verde.
+Fase D (endpoints de contenido) completada y verificada: `featured`, `media/{id}`, `media/{id}/sources` y `media/{id}/playback` responden con el shape de la Sección 8; errores 400/404 con `{error:{code,message,requestId}}`; `X-Request-Id` propagado; CORS restringido; `typecheck`/`lint`/`build` en verde.
 
 ## Trabajo pendiente inmediato
 
-Fase D: endpoints de contenido de la API. Plan completo de v0.1.0-alpha en `CURRENT_TASK.md`.
+Fase E: frontend (página de detalle + componente Player con Hls.js). Plan completo de v0.1.0-alpha en `CURRENT_TASK.md`.
 
 ## Decisiones recientes
 
@@ -35,6 +35,10 @@ Fase D: endpoints de contenido de la API. Plan completo de v0.1.0-alpha en `CURR
 - La referencia de reproducción vive en una tabla **`sources` mínima** (`id`, `media_item_id` FK cascade, `playback_url`, `is_active`) — decisión humana sobre §12.5; difiere del DDL de §7.37 y deberá alinearse en v0.4 (registrado en `BACKLOG.md`).
 - Seed de prueba: contenido `big-buck-bunny` con stream HLS público `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`.
 - `media_type` sigue la lista de §7.17 en mayúsculas (`MOVIE`, `SERIES`, …), también en `packages/shared`.
+- API v0.1: rutas `GET /v1/catalog/featured` (§8.12), `GET /v1/media/{mediaId}` (§8.13), `GET /v1/media/{mediaId}/sources` (§8.16). Ninguna expone `streamUrl` excepto el endpoint temporal `GET /v1/media/{mediaId}/playback`, necesario para que Hls.js reproduzca antes de existir PlaybackSession/Gateway (deuda registrada en `BACKLOG.md`).
+- `requestId` por petición (acepta `X-Request-Id` entrante válido, si no genera `req_<hex>`), propagado en header y body (§8.50).
+- CORS restringido al origen de `WEB_ORIGIN` (`http://localhost:3000` en `.env`).
+- El frontend aún no consume la API (Fase E).
 
 ## Problemas conocidos
 
@@ -43,7 +47,7 @@ Fase D: endpoints de contenido de la API. Plan completo de v0.1.0-alpha en `CURR
 
 ## Tests ejecutados
 
-Ningún test unitario todavía (sin framework definido; los tests de funcionalidad llegan tras la funcionalidad — AGENTS.md §8). Verificación acumulada: `pnpm typecheck`, `pnpm lint`, `pnpm build` en verde; smoke test `GET /v1/health` OK; `db:seed` idempotente + `db:verify` con lectura real (`mediaItems: 1, sources: 1`).
+Ningún test unitario todavía (sin framework definido; los tests de funcionalidad llegan tras la funcionalidad — AGENTS.md §8). Verificación acumulada: `pnpm typecheck`, `pnpm lint`, `pnpm build` en verde; `db:seed` idempotente + `db:verify` (`mediaItems: 1, sources: 1`); smoke test manual por HTTP de los 4 endpoints + 404/400 + `X-Request-Id` + preflight CORS.
 
 ## Último commit
 
