@@ -47,10 +47,10 @@ Ningún test unitario todavía (sin framework definido; los tests de funcionalid
 
 ## Último commit
 
-`feat: estructura de monorepo con pnpm workspaces (Fase B)` (`df371ae`).
+`feat: persistencia minima en Supabase con Drizzle (Fase C)` (`d70011a`).
 
-Anteriores: `docs: actualizar DEVELOPMENT_STATE tras el commit inicial` (`b362433`), `chore: bootstrap de documentacion de control y especificacion paper_project` (`f98db3b`, root commit: 63 archivos).
+Anteriores: `docs: registrar commit de la Fase B en DEVELOPMENT_STATE` (`5166e97`), `feat: estructura de monorepo con pnpm workspaces (Fase B)` (`df371ae`), `docs: actualizar DEVELOPMENT_STATE tras el commit inicial` (`b362433`), `chore: bootstrap de documentacion de control y especificacion paper_project` (`f98db3b`, root commit).
 
 ## Bloqueos existentes
 
-Ninguno bloqueante. Decisiones abiertas de v0.1.0-alpha resueltas (ver arriba); queda elegir el stream HLS concreto durante la implementación.
+Ninguno. Decisiones de v0.1.0-alpha resueltas (persistencia, estructura, stream de prueba, tabla `sources`).
