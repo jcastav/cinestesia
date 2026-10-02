@@ -12,11 +12,11 @@ Ninguno.
 
 ## Trabajo actual
 
-Fase D (endpoints de contenido) completada y verificada: `featured`, `media/{id}`, `media/{id}/sources` y `media/{id}/playback` responden con el shape de la Sección 8; errores 400/404 con `{error:{code,message,requestId}}`; `X-Request-Id` propagado; CORS restringido; `typecheck`/`lint`/`build` en verde.
+Fase E (frontend) completada y verificada: home con destacados desde la API, página de detalle `/media/[id]` con Player Hls.js, manejo de error con API caída (`role="alert"`), 404 para contenido inexistente. `typecheck`/`lint`/`build` en verde.
 
 ## Trabajo pendiente inmediato
 
-Fase E: frontend (página de detalle + componente Player con Hls.js). Plan completo de v0.1.0-alpha en `CURRENT_TASK.md`.
+Cierre de v0.1.0-alpha: verificación manual de reproducción en navegador (DoD 5–6, requiere persona), revisión final y tag.
 
 ## Decisiones recientes
 
@@ -37,8 +37,8 @@ Fase E: frontend (página de detalle + componente Player con Hls.js). Plan compl
 - `media_type` sigue la lista de §7.17 en mayúsculas (`MOVIE`, `SERIES`, …), también en `packages/shared`.
 - API v0.1: rutas `GET /v1/catalog/featured` (§8.12), `GET /v1/media/{mediaId}` (§8.13), `GET /v1/media/{mediaId}/sources` (§8.16). Ninguna expone `streamUrl` excepto el endpoint temporal `GET /v1/media/{mediaId}/playback`, necesario para que Hls.js reproduzca antes de existir PlaybackSession/Gateway (deuda registrada en `BACKLOG.md`).
 - `requestId` por petición (acepta `X-Request-Id` entrante válido, si no genera `req_<hex>`), propagado en header y body (§8.50).
-- CORS restringido al origen de `WEB_ORIGIN` (`http://localhost:3000` en `.env`).
-- El frontend aún no consume la API (Fase E).
+- CORS restringido al origen de `WEB_ORIGIN` (`http://localhost:3000` en `.env` de la API).
+- Frontend v0.1: fetch en Server Components con `dynamic = "force-dynamic"` (sin fetch al construir); `NEXT_PUBLIC_API_URL` en `apps/web/.env.local` (gitignored). Player carga Hls.js mediante import dinámico dentro de `useEffect` (evita `window` en SSR) y destruye la instancia al desmontar.
 
 ## Problemas conocidos
 
@@ -47,7 +47,7 @@ Fase E: frontend (página de detalle + componente Player con Hls.js). Plan compl
 
 ## Tests ejecutados
 
-Ningún test unitario todavía (sin framework definido; los tests de funcionalidad llegan tras la funcionalidad — AGENTS.md §8). Verificación acumulada: `pnpm typecheck`, `pnpm lint`, `pnpm build` en verde; `db:seed` idempotente + `db:verify` (`mediaItems: 1, sources: 1`); smoke test manual por HTTP de los 4 endpoints + 404/400 + `X-Request-Id` + preflight CORS.
+Ningún test unitario todavía (sin framework definido; los tests de funcionalidad llegan tras la funcionalidad — AGENTS.md §8). Verificación acumulada: `pnpm typecheck`, `pnpm lint`, `pnpm build` en verde; `db:seed` idempotente + `db:verify` (`mediaItems: 1, sources: 1`); smoke HTTP de los 4 endpoints + 404/400 + `X-Request-Id` + preflight CORS; smoke end-to-end del frontend (home con destacados y enlace, detalle con título/sinopsis/`<video>`, 404 para id inexistente, `role="alert"` cuando la API está caída). **Pendiente:** reproducción visual del video en navegador (DoD 5–6, verificación humana).
 
 ## Último commit
 

@@ -96,4 +96,4 @@ Criterios transversales (§12.52 + AGENTS.md §7 y §9):
 
 ## Siguiente paso concreto
 
-Fase E: frontend — página de detalle de contenido que consume `GET /v1/media/{mediaId}` y componente Player con Hls.js que consume `GET /v1/media/{mediaId}/playback`.
+Cierre de v0.1.0-alpha: verificación manual de reproducción en navegador (DoD 5 y 6), revisión de diff, actualización de documentación y tag `v0.1.0-alpha`.
