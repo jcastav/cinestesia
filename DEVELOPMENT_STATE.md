@@ -12,7 +12,7 @@ Ninguno.
 
 ## Trabajo actual
 
-Bootstrap del repositorio: archivos de control en la raíz (`AGENTS.md`, `DEVELOPMENT_STATE.md`, `CURRENT_TASK.md`, `CHANGELOG.md`, `BACKLOG.md`) y lectura de la especificación `paper_project/`.
+Bootstrap completado (4 archivos de control creados y commiteados). No hay código todavía.
 
 ## Trabajo pendiente inmediato
 
@@ -30,7 +30,6 @@ Primer vertical slice **v0.1.0-alpha** — ver `CURRENT_TASK.md`.
 
 ## Problemas conocidos
 
-- Repositorio sin commits hasta el bootstrap.
 - No existe estructura de aplicación todavía (sin `package.json`).
 - Fuente de prueba HLS autorizada pendiente de elegir y documentar.
 
@@ -40,7 +39,7 @@ Ninguno (no hay código todavía).
 
 ## Último commit
 
-Ninguno (repo inicializado, archivos sin trackear).
+`chore: bootstrap de documentacion de control y especificacion paper_project` (`f98db3b`, root commit: 63 archivos — AGENTS.md, los 4 archivos de control y `paper_project/`).
 
 ## Bloqueos existentes
 
