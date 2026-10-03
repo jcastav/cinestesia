@@ -4,7 +4,7 @@ Estado factual del repositorio. Nunca declarar terminado algo que no fue verific
 
 ## Versión actual
 
-v0.1.0-alpha — **CERRADA** (tag `v0.1.0-alpha`, 2026-10-02). Siguiente versión del roadmap: v0.2.0-alpha (§12.6, no iniciada).
+v0.1.0-alpha — **CERRADA** (tag `v0.1.0-alpha`, 2026-10-02). En curso: **v0.2.0-alpha — Catálogo mínimo** (plan aprobado en `CURRENT_TASK.md`).
 
 ## Último slice completado
 
@@ -12,11 +12,11 @@ v0.1.0-alpha — **CERRADA** (tag `v0.1.0-alpha`, 2026-10-02). Siguiente versió
 
 ## Trabajo actual
 
-Ninguno en curso. El repositorio queda en estado verificado tras el cierre de v0.1.0-alpha.
+**v0.2.0-alpha — Fase A (esquema de datos v2) completada y verificada:** migración `0001` aplicada en Supabase (media_items completo + genres/media_genres/media_external_ids/seasons/episodes + índices), seed enriquecido idempotente (película PUBLISHED + serie demo con 1 temporada/3 episodios sin Source), `db:verify` con conteos nuevos. typecheck/lint/build en verde.
 
 ## Trabajo pendiente inmediato
 
-Decidir con humano el inicio de v0.2.0-alpha — Catálogo mínimo (§12.6): `MediaItem` completo, estados de publicación, listado básico, repositorios y DTOs de Catalog.
+**Fase B** del plan de `CURRENT_TASK.md`: capa repository/service del módulo Catalog + ampliación de DTOs compartidos, sin cambio de comportamiento de los 4 endpoints v0.1.
 
 ## Decisiones recientes
 
@@ -39,6 +39,8 @@ Decidir con humano el inicio de v0.2.0-alpha — Catálogo mínimo (§12.6): `Me
 - `requestId` por petición (acepta `X-Request-Id` entrante válido, si no genera `req_<hex>`), propagado en header y body (§8.50).
 - CORS restringido al origen de `WEB_ORIGIN` (`http://localhost:3000` en `.env` de la API).
 - Frontend v0.1: fetch en Server Components con `dynamic = "force-dynamic"` (sin fetch al construir); `NEXT_PUBLIC_API_URL` en `apps/web/.env.local` (gitignored). Player carga Hls.js mediante import dinámico dentro de `useEffect` (evita `window` en SSR) y destruye la instancia al desmontar.
+- v0.2 decisiones aprobadas por humano (2026-10-02, plan completo en `CURRENT_TASK.md`): temporadas/episodios sí (mínimo: schema + endpoint + display; creación por API → BACKLOG); creación de contenido vía `POST/PATCH /v1/admin/media` con token estático `ADMIN_API_TOKEN` (RBAC real → v0.6/v0.8); listado vía nuevo `GET /v1/media` paginado (adición a §8 → BACKLOG); resolución dual id/slug en `GET /v1/media/{identifier}`; external IDs con campo `namespace` (§7.27); enums en mayúsculas (§7.17); 422→`INVALID_ARGUMENT`, 409→`CONFLICT`, 401→`UNAUTHORIZED`; tests con `node:test` nativo; episodios display-only (sources es media-level → v0.4).
+- Esquema v2: índices añadidos solo donde justifica un patrón de consulta (§6.34k) — los UNIQUE de `seasons` y `episodes` ya proveen sus índices de consulta; `idx_episodes_media` añadido para conteos por media en detalle.
 
 ## Problemas conocidos
 
@@ -47,13 +49,15 @@ Decidir con humano el inicio de v0.2.0-alpha — Catálogo mínimo (§12.6): `Me
 
 ## Tests ejecutados
 
-Ningún test unitario todavía (sin framework definido; los tests de funcionalidad llegan tras la funcionalidad — AGENTS.md §8). Verificación de v0.1.0-alpha: `pnpm typecheck`, `pnpm lint`, `pnpm build` en verde; `db:seed` idempotente + `db:verify` (`mediaItems: 1, sources: 1`); smoke HTTP de los 4 endpoints + 404/400 + `X-Request-Id` + preflight CORS; smoke end-to-end del frontend (home con destacados y enlace, detalle con título/sinopsis/`<video>`, 404 para id inexistente, `role="alert"` con API caída); **reproducción visual del video confirmada por persona (2026-10-02)**.
+Ningún test unitario todavía (sin framework definido; los tests de funcionalidad llegan tras la funcionalidad — AGENTS.md §8). Verificación de v0.1.0-alpha: `pnpm typecheck`, `pnpm lint`, `pnpm build` en verde; `db:seed` idempotente + `db:verify` (`mediaItems: 1, sources: 1`); smoke HTTP de los 4 endpoints + 404/400 + `X-Request-Id` + preflight CORS; smoke end-to-end del frontend (home con destacados y enlace, detalle con título/sinopsis/`<video>`, 404 para id inexistente, `role="alert"` con API caída); **reproducción visual del video confirmada por persona (2026-10-02)**. v0.2.0-alpha Fase A: migración `0001` aplicada; seed ×2 idempotente; `db:verify` (`mediaItems: 2, published: 2, sources: 1, genres: 4, mediaGenres: 4, externalIds: 2, seasons: 1, episodes: 3`); typecheck/lint/build en verde.
 
 ## Último commit
 
-`feat: frontend con pagina de detalle y Player Hls.js (Fase E)` (`264fa4a`).
+`chore: cerrar v0.1.0-alpha` (`70cb335`) — es decir, el tag `v0.1.0-alpha`.
 
-Anteriores: `docs: registrar commit de la Fase D en DEVELOPMENT_STATE` (`2f1ea81`), `feat: endpoints de contenido con contrato Seccion 8 (Fase D)` (`4be3a6f`), Fase C (`d70011a`), Fase B (`df371ae`), bootstrap (`f98db3b`).
+*Los commits de las fases A–E de v0.2.0-alpha se registrarán aquí en la Fase F (cierre), para mantener «1 commit por fase» sin commits de documentación intermedios (decisión del plan aprobado en `CURRENT_TASK.md`).*
+
+Anteriores: Fase E (`264fa4a`), Fase D (`4be3a6f`), Fase C (`d70011a`), Fase B (`df371ae`), bootstrap (`f98db3b`).
 
 ## Bloqueos existentes
 
