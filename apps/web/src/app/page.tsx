@@ -29,7 +29,7 @@ export default async function HomePage() {
           </Link>
         </div>
         <p className="text-neutral-400">
-          v0.1.0-alpha — primer vertical slice.
+          v0.2.0-alpha.
         </p>
       </header>
 
