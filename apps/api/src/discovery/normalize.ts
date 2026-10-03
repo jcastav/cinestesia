@@ -1,4 +1,5 @@
 import type { MediaType } from "@cinestesia/shared";
+import type { CandidateExternalId, DiscoveredItemInput } from "./adapter";
 import { DiscoveryError } from "./errors";
 
 /**
@@ -30,29 +31,6 @@ const MAX_YEAR = 9999;
 const MAX_RUNTIME = 2147483647;
 const HTTP_URL = /^https?:\/\/\S+$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-export interface CandidateExternalId {
-  namespace: string;
-  externalId: string;
-  externalUrl?: string | null;
-}
-
-/** Entrada común de un adapter (§6.44 §3); el contrato completo llega en la Fase C. */
-export interface DiscoveredItemInput {
-  provider: string;
-  externalId: string;
-  raw: Record<string, unknown>;
-  title: string;
-  originalTitle?: string | null;
-  type?: string | null;
-  releaseYear?: number | string | null;
-  releaseDate?: string | null;
-  runtimeSeconds?: number | string | null;
-  synopsis?: string | null;
-  posterUrl?: string | null;
-  backdropUrl?: string | null;
-  externalIds?: CandidateExternalId[];
-}
 
 /** §6.44 §19 — contenido normalizado persistido en `normalized_data` (jsonb). */
 export type NormalizedContent = {
@@ -383,4 +361,20 @@ export function normalizeContent(input: DiscoveredItemInput): NormalizedContent 
     slugBase: slug,
     issues,
   };
+}
+
+/**
+ * Identidad persistible (Fase C): si la normalización falla, un candidato con
+ * identidad estable se guarda en `FAILED` con su error; sin ella solo queda el
+ * error del run (no existe fila posible — §6.44 §67 exige provider/externalId).
+ */
+export function hasStableIdentity(input: DiscoveredItemInput): boolean {
+  return (
+    typeof input.provider === "string" &&
+    input.provider.trim().length > 0 &&
+    input.provider.trim().length <= MAX_PROVIDER &&
+    typeof input.externalId === "string" &&
+    input.externalId.trim().length > 0 &&
+    input.externalId.trim().length <= MAX_EXTERNAL_ID
+  );
 }

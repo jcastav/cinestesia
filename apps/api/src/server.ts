@@ -4,8 +4,10 @@ import type { ApiErrorResponse } from "@cinestesia/shared";
 import Fastify from "fastify";
 import { CatalogError } from "./catalog/errors";
 import { DiscoveryError } from "./discovery/errors";
+import { recoverOrphanedRuns } from "./discovery/repository";
 import { sendError } from "./lib/errors";
 import { resolveRequestId } from "./lib/request-id";
+import { registerAdminDiscoveryRoutes } from "./routes/admin-discovery";
 import { registerAdminMediaRoutes } from "./routes/admin-media";
 import { registerCatalogRoutes } from "./routes/catalog";
 import { registerMediaRoutes } from "./routes/media";
@@ -88,6 +90,15 @@ async function main(): Promise<void> {
   await registerCatalogRoutes(app);
   await registerMediaRoutes(app);
   await registerAdminMediaRoutes(app);
+  await registerAdminDiscoveryRoutes(app);
+
+  const recovered = await recoverOrphanedRuns();
+  if (recovered > 0) {
+    app.log.warn(
+      { runs: recovered },
+      "Discovery Runs huérfanos marcados como FAILED al iniciar",
+    );
+  }
 
   const port = Number(process.env.PORT ?? 3001);
 

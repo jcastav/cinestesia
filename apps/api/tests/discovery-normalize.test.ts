@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { DiscoveryError } from "../src/discovery/errors";
-import type { DiscoveredItemInput } from "../src/discovery/normalize";
-import { normalizeContent, slugify } from "../src/discovery/normalize";
+import type { DiscoveredItemInput } from "../src/discovery/adapter";
+import {
+  hasStableIdentity,
+  normalizeContent,
+  slugify,
+} from "../src/discovery/normalize";
 import { buildProvenance, payloadChecksum } from "../src/discovery/provenance";
 
 function expectInvalidArgument(fn: () => unknown): void {
@@ -230,6 +234,21 @@ test("normalizeContent trunca title/synopsis/slug largos y lo registra en issues
   assert.ok(result.issues.some((issue) => issue.includes("title excede")));
   assert.ok(result.issues.some((issue) => issue.includes("synopsis excede")));
   assert.ok(result.issues.some((issue) => issue.includes("slugBase excede")));
+});
+
+test("hasStableIdentity exige provider y externalId utilizables", () => {
+  assert.equal(hasStableIdentity(baseInput), true);
+  assert.equal(hasStableIdentity({ ...baseInput, provider: "   " }), false);
+  assert.equal(hasStableIdentity({ ...baseInput, provider: "p".repeat(101) }), false);
+  assert.equal(hasStableIdentity({ ...baseInput, externalId: "" }), false);
+  assert.equal(
+    hasStableIdentity({ ...baseInput, externalId: "x".repeat(256) }),
+    false,
+  );
+  assert.equal(
+    hasStableIdentity({ ...baseInput, provider: 42 } as unknown as DiscoveredItemInput),
+    false,
+  );
 });
 
 test("payloadChecksum es estable ante distinto orden de claves y sensible al contenido", () => {

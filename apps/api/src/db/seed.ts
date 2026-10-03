@@ -55,7 +55,7 @@ const seedDiscoveryAdapters = [
     version: "1.0.0",
     provider: "tvmaze",
     enabled: true,
-    capabilities: ["CONTENT_DISCOVERY"],
+    capabilities: ["CONTENT_DISCOVERY", "REQUIRES_QUERY"],
     configuration: {
       baseUrl: "https://api.tvmaze.com",
       timeoutMs: 10000,
@@ -69,7 +69,7 @@ const seedDiscoveryAdapters = [
     version: "1.0.0",
     provider: "manual",
     enabled: true,
-    capabilities: ["CONTENT_DISCOVERY"],
+    capabilities: ["CONTENT_DISCOVERY", "REQUIRES_QUERY"],
     configuration: {},
   },
 ];
