@@ -3,7 +3,7 @@
 ## Tarea actual
 
 **v0.3.0-alpha — Discovery & Ingestion: EN CURSO.**
-Fases A y B completadas y verificadas; **Fase C pendiente de aprobación**.
+Fases A, B y C completadas y verificadas; **Fase D pendiente de aprobación**.
 
 Objetivo (§12.7): que la plataforma descubra información externa, la convierta en
 candidatos, determine a qué contenido pertenece e incorpore al Catalog de forma
@@ -41,12 +41,12 @@ queue/jobs/errores) y **E2** (adapters admin); adapter API keyless decidido =
 - **Verificación:** typecheck/lint/build en verde; **`pnpm test` 30/30** (20 de v0.2 + 10 nuevos: slugify, normalización feliz, tipos, fechas/derivación de año, runtime/URLs, externalIds, identidad/payload, truncados, checksum canónico, provenance §11).
 - **Commit código:** `15799d7` · **Commit docs:** `docs: registrar Fase B en BACKLOG y DEVELOPMENT_STATE`
 
-### Fase C — Discovery Run manual de extremo a extremo con el primer adapter
+### Fase C — Discovery Run manual de extremo a extremo con el primer adapter ✓
 - **Objetivo:** criterios 1–4 y 9 de §12.7 (adapter obtiene info externa, se crea Run, candidatos con provenance, re-ejecución sin duplicados).
-- **Archivos:** `discovery/http.ts` (fetch delimitado: https, allowlist, timeout, límite de bytes, content-type, retry acotado + backoff/jitter, UA identificable, rate limit por adapter); `discovery/adapter.ts` (contrato §14/§23); `discovery/registry.ts`; `discovery/adapters/tvmaze-metadata.ts`; `discovery/adapters/manual-import.ts` (§13.4); `discovery/orchestrator.ts` (run `QUEUED→RUNNING→SUCCEEDED/PARTIAL/FAILED`, upsert idempotente de candidatos, counters, errores → `ingestion_errors`, ejecución en proceso); `routes/admin-discovery.ts` (`POST /v1/admin/discovery/runs` 202, `GET /v1/admin/discovery/runs`, `GET .../runs/{runId}`); tests de contrato con fixtures + orquestador con repositorio falso.
-- **Verificación:** smoke con token — POST 202 → polling `SUCCEEDED` con counters; candidatos con provenance completa; repetir POST → 0 candidatos nuevos; 404 `RUN_NOT_FOUND`; 401 sin token; adapter desconocido/disabled → 404/409.
-- **Commit:** `feat: Discovery Run manual con primer adapter autorizado y candidatos con provenance (Fase C)`
-- *Nota:* `query?`/`limit?` como parámetros opcionales del run (adición de contrato → BACKLOG).
+- **Archivos:** `discovery/http.ts` (fetch delimitado: https, allowlist, timeout, límite de bytes, content-type, retry acotado + backoff/jitter, UA identificable, rate limit por adapter); `discovery/adapter.ts` (contrato §14/§23; `DiscoveredItemInput`/`CandidateExternalId` migrados desde `normalize.ts` — deuda de B saldada); `discovery/registry.ts`; `discovery/adapters/tvmaze-metadata.ts`; `discovery/adapters/manual-import.ts` (§13.4); `discovery/orchestrator.ts` (run `QUEUED→RUNNING→SUCCEEDED/PARTIAL/FAILED`, upsert idempotente de candidatos, counters, errores → `ingestion_errors`, ejecución en proceso, nunca relanza); `discovery/repository.ts` (advisory lock para un solo run activo, upsert con `setWhere` descubrible, `recoverOrphanedRuns` al boot); `discovery/service.ts` + `discovery/validation.ts` (validación pura); `discovery/mapper.ts`; `routes/admin-discovery.ts` (`POST /v1/admin/discovery/runs` 202, `GET /v1/admin/discovery/runs`, `GET .../runs/{runId}`); `server.ts` (registro + recuperación de huérfanos); `db/seed.ts` (capabilities `REQUIRES_QUERY`); tests `discovery-http.test.ts` + `discovery-run.test.ts`.
+- **Verificación:** typecheck (3 paquetes) + lint + build en verde; **`pnpm test` 54/54** (30 previos + 24 nuevos: 9 de http con fakes inyectables — allowlist/https/redirect, 429/5xx con backoff, 4xx sin retry, deadline, content-type/tamaño, timeout/red —; 6 de adapters TVMaze/manual con fixtures; 6 de orquestador con repositorio falso — SUCCEEDED/PARTIAL/FAILED, sin claim, adapter ausente, upstream, sin identidad —; 3 de `parseRunRequest`/`parseRunListParams`; `hasStableIdentity`); **smoke HTTP con token** — 401 sin token; POST → 202 + polling `SUCCEEDED` (`candidatesFound:2, processed:2, errors:0`, `durationMs:460`); 404 `ADAPTER_NOT_FOUND`; 400 `mode=INCREMENTAL`; 400 `tvmaze_metadata` sin query; 404 `RUN_NOT_FOUND` (no-UUID y UUID inexistente); lista 200 con `meta`; 409 `RUN_ALREADY_RUNNING` con run activo; re-POST → `SUCCEEDED` con 0 candidatos nuevos (`db:verify`: `discoveryRuns: 2, discoveryCandidates: 2, ingestionErrors: 0`, catálogo intacto); `db:seed` aplicado con capabilities alineadas.
+- **Commit código:** `38966b9` · **Commit docs:** `docs: registrar Fase C en BACKLOG y DEVELOPMENT_STATE`
+- *Nota:* `query?`/`limit?` como parámetros opcionales del run (adición de contrato → BACKLOG). La normalización ya se aplica al persistir el candidato (ajuste registrado en BACKLOG); Fase D queda en matching + validación §28 + ingesta.
 
 ### Fase D — Matching y ingesta al Catalog
 - **Objetivo:** criterios 5, 6, 7 y 9 completos (normalización aplicada, match por External ID, candidato nuevo → MediaItem, re-ejecución sin duplicados).

@@ -4,7 +4,7 @@ Estado factual del repositorio. Nunca declarar terminado algo que no fue verific
 
 ## Versión actual
 
-v0.3.0-alpha — **EN CURSO** (plan aprobado 2026-10-03). **Fases A y B completadas y verificadas.** Versión anterior: v0.2.0-alpha **CERRADA** (tag `v0.2.0-alpha`, 2026-10-03).
+v0.3.0-alpha — **EN CURSO** (plan aprobado 2026-10-03). **Fases A, B y C completadas y verificadas.** Versión anterior: v0.2.0-alpha **CERRADA** (tag `v0.2.0-alpha`, 2026-10-03).
 
 ## Último slice completado
 
@@ -12,13 +12,13 @@ v0.3.0-alpha — **EN CURSO** (plan aprobado 2026-10-03). **Fases A y B completa
 
 ## Trabajo actual
 
-**v0.3.0-alpha — Discovery & Ingestion (§12.7).** Fase A (esquema de datos, `3a5587b`) y Fase B (contratos de dominio + normalización + provenance, `15799d7`) completadas y verificadas; documentación de ambas fases registrada en `BACKLOG.md`, `DEVELOPMENT_STATE.md` y `CURRENT_TASK.md`.
+**v0.3.0-alpha — Discovery & Ingestion (§12.7).** Fase A (esquema de datos, `3a5587b`), Fase B (contratos de dominio + normalización + provenance, `15799d7`) y Fase C (Discovery Run manual con adapters `tvmaze_metadata`/`manual_import`, `38966b9`) completadas y verificadas; documentación de las tres fases registrada en `BACKLOG.md`, `DEVELOPMENT_STATE.md` y `CURRENT_TASK.md`.
 
 Regla nueva v0.3+ (decisión humana 2026-10-03): **cada fase cierra con commit de código + actualización de `BACKLOG.md` y `DEVELOPMENT_STATE.md`** (y `CURRENT_TASK.md` con ✓ y hash), antes de parar y pedir aprobación. `CHANGELOG.md` solo al cerrar la versión; `AGENTS.md` no se toca.
 
 ## Trabajo pendiente inmediato
 
-**Fase C — Discovery Run manual de extremo a extremo con el primer adapter** (pendiente de aprobación humana para iniciar). Detalle completo en `CURRENT_TASK.md`.
+**Fase D — Matching y ingesta al Catalog** (pendiente de aprobación humana para iniciar). Detalle completo en `CURRENT_TASK.md`.
 
 ## Decisiones recientes
 
@@ -53,6 +53,8 @@ Regla nueva v0.3+ (decisión humana 2026-10-03): **cada fase cierra con commit d
 
 - Decisiones de Fase B (registradas en `BACKLOG.md`): límites de normalización **alineados con `catalog/validation.ts`** (nunca más estrictos que el catálogo, para que la Fase D no encuentre 400s); campos inválidos → se descartan y se registra el motivo en `normalizedData.issues[]` (AGENTS §6), salvo identidad (`provider`/`externalId`/`title`) que aborta con `DiscoveryError("INVALID_ARGUMENT")`; año inválido se descarta y si existe `releaseDate` válida se deriva el año de ella (con issue); checksum canónico sha256 con claves ordenadas recursivamente (§11: mismo payload en distinto orden = mismo checksum); truncado de `title`/`synopsis`/`slugBase` con issue en lugar de error.
 
+- Decisiones de Fase C (registradas en `BACKLOG.md`): registry de código (`discovery/registry.ts`) como verdad runtime de `capabilities`/`version` (la fila `discovery_adapters` es metadato; seed alineado con `REQUIRES_QUERY`); un solo run activo garantizado con `pg_advisory_xact_lock` transaccional (índice único parcial diferido); orquestador que nunca relanza — `SUCCEEDED`/`PARTIAL`/`FAILED` según §32 con errores siempre persistidos en `ingestion_errors` (§40); candidato en `FAILED` sólo con identidad estable (`hasStableIdentity`), sin identidad queda sólo el error del run y el lote continúa; upsert con `WHERE status IN (DISCOVERED, FAILED, STALE)` para no pisar estados editoriales de la Fase D+ (versión OCC sólo sube si cambia checksum/versión/status); fetch externo delimitado (sólo https + allowlist por adapter, `redirect: "error"`, 10s/1MB/JSON, reintentos ≤ 3 con backoff+jitter y deadline 30s, 5 req/s, UA `Cinestesia-Discovery/0.3.0`); runs huérfanos → `FAILED` al boot; **la normalización se aplica ya al persistir el candidato** (ajuste sobre el plan, que la reservaba para D — D queda en matching + validación §28 + ingesta).
+
 ## Problemas conocidos
 
 - `next build` avisa: "The Next.js plugin was not detected in your ESLint configuration" (no bloqueante; `eslint-config-next` pendiente de evaluar).
@@ -66,11 +68,13 @@ v0.3.0-alpha Fase A: `pnpm typecheck` (3 paquetes) + `pnpm lint` + `pnpm build` 
 
 v0.3.0-alpha Fase B: **`pnpm test` (30/30 `node:test`: 20 de regresión de v0.2 + 10 nuevos de Discovery — slugify, normalización feliz, mapeo de tipos, fechas/derivación/desajuste, runtime y URLs, depuración de externalIds, identidad/payload inválidos, truncados, checksum canónico, buildProvenance)**; typecheck (3 paquetes) + lint + build en verde; sin cambios de BD (motor puro, sin migración).
 
+v0.3.0-alpha Fase C: **`pnpm test` (54/54 `node:test` — +24 nuevos: 9 de `http.ts` con `fetchImpl`/`sleep`/`now`/`random` inyectables (allowlist https/redirect 404–429–5xx con backoff y deadline, content-type/tamaño, timeout `TimeoutError`, red `TypeError`); 6 de adapters TVMaze (fixture `/search/shows`, query obligatoria, límite, payload inválido) y Manual Import (arreglo/objeto, JSON inválido, índice de ítem); 6 del orquestador con repositorio falso (`SUCCEEDED`, `PARTIAL` con candidato `FAILED`, `FAILED` sin identidad/adapter/upstream, sin claim); 3 de `parseRunRequest`/`parseRunListParams`; `hasStableIdentity`)**; typecheck (3 paquetes) + lint + build en verde; `db:seed` aplicado (capabilities `REQUIRES_QUERY` en ambos adapters); **smoke HTTP con token** — 401 sin token, `POST .../runs` → 202 + polling `SUCCEEDED` (`candidatesFound:2, processed:2, errors:0`, `durationMs:460`), 404 `ADAPTER_NOT_FOUND`, 400 `mode=INCREMENTAL`, 400 `tvmaze_metadata` sin query, 404 `RUN_NOT_FOUND` (no-UUID y UUID inexistente), `GET .../runs` 200 con `meta`, 409 `RUN_ALREADY_RUNNING` (run activo insertado directamente), re-POST → 0 candidatos nuevos; `db:verify` → `discoveryRuns: 2, discoveryCandidates: 2, ingestionErrors: 0` y catálogo intacto; API detenida tras las pruebas; scripts temporales de smoke fuera del repo (Temp).
+
 ## Último commit
 
-Commit de documentación de la Fase B: `docs: registrar Fase B en BACKLOG y DEVELOPMENT_STATE` (este commit; su hash se registra en la próxima actualización, AGENTS §10).
+Commit de documentación de la Fase C: `docs: registrar Fase C en BACKLOG y DEVELOPMENT_STATE` (este commit; su hash se registra en la próxima actualización, AGENTS §10).
 
-Commits de código de v0.3.0-alpha (una fase = un commit + su commit de docs): Fase B (`15799d7`), Fase A (`3a5587b`). Commit de documentación de la Fase A: `85ef6df`.
+Commits de código de v0.3.0-alpha (una fase = un commit + su commit de docs): Fase C (`38966b9`), Fase B (`15799d7`), Fase A (`3a5587b`). Commits de documentación: Fase A (`85ef6df`), Fase B (`48b23c2`).
 
 Cierre de v0.2.0-alpha: `chore: cerrar v0.2.0-alpha` (`f626077`, tag `v0.2.0-alpha`); fases: Fase E (`0d08533`), Fase D (`6900dcd`), Fase C (`d58b4c9`), Fase B (`1ac4051`), Fase A (`d5d167b`); post-cierre: `17f8e08` (home con la versión alpha).
 

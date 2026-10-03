@@ -97,7 +97,63 @@ Decisiones tomadas durante la implementación y aprobadas en el plan de v0.3
 
 - **Registrada por:** agente — Fase B (2026-10-03)
 - **Contexto:** §3 define `DiscoveryCandidate` mínimo (identidad + normalized + checksum); los endpoints admin (§18–§20) necesitan además `status`, `version` (OCC) y `rejectionReason`, y §5/§6 definen `DiscoveryRunDto` con contadores.
-- **Impacto:** contrato. `DiscoveryCandidateDto` = §3 + `status`/`version`/`rejectionReason`/`match`/`rawPayload` (solo se exponen en rutas admin); `DiscoveryRunDto` añade `mode`/`query`/`maxItems`/`counters`/`errorSummary`. Los mappers row → DTO llegan en las fases C/E1 (aún no existe repositorio de discovery).
+- **Impacto:** contrato. `DiscoveryCandidateDto` = §3 + `status`/`version`/`rejectionReason`/`match`/`rawPayload` (solo se exponen en rutas admin); `DiscoveryRunDto` añade `mode`/`query`/`maxItems`/`counters`/`errorSummary`. Mapper row → DTO de runs en `discovery/mapper.ts` (Fase C); el de candidatos llega en E1.
+- **Estado:** decidida
+
+### Registry de código como verdad runtime de adapters (capabilities/version)
+
+- **Registrada por:** agente — Fase C (2026-10-03)
+- **Contexto:** `discovery_adapters` (fila administrativa, Fase A) y `discovery/registry.ts` (código) pueden divergir: la capability `REQUIRES_QUERY` que gatesa el 400 en `POST /runs` debe venir del código que se ejecuta, no de metadatos editables.
+- **Impacto:** seguridad/comportamiento. El runtime lee `capabilities`/`version` del registry; la fila es metadato para la UI (E2). Seed alineado en la Fase C (`["CONTENT_DISCOVERY", "REQUIRES_QUERY"]` en ambos adapters).
+- **Estado:** decidida
+
+### Un solo run activo: advisory lock transaccional (sin índice único parcial)
+
+- **Registrada por:** agente — Fase C (2026-10-03)
+- **Contexto:** decisión 11 del plan (un solo run activo → 409 `RUN_ALREADY_RUNNING`) sin migración en la Fase C; el índice único parcial `WHERE status IN (QUEUED, RUNNING)` no existe en la migración `0002`.
+- **Impacto:** modelo de datos/concurrencia. `createRunWithLock` toma `pg_advisory_xact_lock(hashtext('cinestesia:discovery_run_active'))` y chequea runs activos dentro de la misma transacción. El índice único queda en «Ideas futuras» como refuerzo/consulta.
+- **Estado:** decidida (índice diferido)
+
+### Estados del run y política de errores del orquestador (§32/§40)
+
+- **Registrada por:** agente — Fase C (2026-10-03)
+- **Contexto:** §32 define `SUCCEEDED/PARTIAL/FAILED`; §40 exige que los fallos terminen como filas `ingestion_errors` visibles (criterio 10 de §12.7) y la ejecución en proceso (decisión del plan) no debe dejar runs colgados ni excepciones escapando del proceso.
+- **Impacto:** comportamiento. `executeRun` nunca relanza: errores=0 → `SUCCEEDED`; errores>0 con ítems procesados → `PARTIAL`; sin ítems procesados o fallo del adapter/registry → `FAILED` (con `errorSummary`). `candidatesFound` = emitidos, `processed` = persistidos `DISCOVERED`, `errors` = filas de error (matched/new/ambiguous/rejected/sourcesDiscovered esperan a D/E1).
+- **Estado:** decidida
+
+### Candidato con error: `FAILED` persistido sólo con identidad estable
+
+- **Registrada por:** agente — Fase C (2026-10-03)
+- **Contexto:** `provider`/`externalId` son `NOT NULL` (§67): si la normalización falla por identidad inválida no existe fila posible.
+- **Impacto:** comportamiento. Identidad estable (`hasStableIdentity`) → candidato en `FAILED` con su `raw_payload`/checksum + `ingestion_errors` con `candidateId`; sin identidad → sólo `ingestion_errors` con `candidateId = null`. En ambos casos el run **continúa** con el resto de ítems (un ítem malo no mata el lote) y los contadores deciden `PARTIAL`/`FAILED`.
+- **Estado:** decidida
+
+### Upsert de candidatos sólo refresca estados descubribles (§21)
+
+- **Registrada por:** agente — Fase C (2026-10-03)
+- **Contexto:** §21 exige transiciones controladas; en Fase D+ existirán candidatos `APPROVED`/`INGESTED` que una re-detección no debe pisar.
+- **Impacto:** modelo de datos. `ON CONFLICT (kind, provider, external_id) DO UPDATE ... WHERE status IN ('DISCOVERED','FAILED','STALE')`; `version` (OCC §35) sube sólo si cambia `payload_checksum`, `adapter_version` o `status`; `discovered_at` se preserva y `run_id` queda como último observador. Si el `WHERE` no aplica, se devuelve la fila existente sin modificar.
+- **Estado:** decidida
+
+### Fetch externo delimitado por adapter (§52/§53/§38)
+
+- **Registrada por:** agente — Fase C (2026-10-03)
+- **Contexto:** sin CAPTCHA/proxies (decisión 1 del plan), el SSRF y la fiabilidad se controlan en el cliente HTTP compartido; ningún host externo puede usarse sin estar en `registry.ts` + allowlist.
+- **Impacto:** seguridad/resiliencia. Sólo https con allowlist de hosts por adapter, `redirect: "error"`, timeout 10s, máx. 1MB y `content-type` JSON, reintentos ≤ 3 sólo ante timeout/red/5xx/429 con backoff 250ms·2^n + jitter ≤ 100ms y deadline total 30s, rate limit 5 req/s por adapter, UA `Cinestesia-Discovery/0.3.0`. Errores clasificados (`UPSTREAM_TIMEOUT`, `UPSTREAM_RATE_LIMIT`, `DISCOVERY_ADAPTER_ERROR`, `INVALID_EXTERNAL_PAYLOAD`) con `retryable`.
+- **Estado:** decidida
+
+### Runs huérfanos → `FAILED` al arrancar
+
+- **Registrada por:** agente — Fase C (2026-10-03)
+- **Contexto:** la ejecución vive en el proceso: si el proceso muere, los runs `QUEUED`/`RUNNING` quedarían colgados para siempre.
+- **Impacto:** comportamiento. `recoverOrphanedRuns()` al hacer boot marca esos runs como `FAILED` con `errorSummary = "Interrumpido por reinicio del proceso"` (sin inventar códigos fuera de §40). Re-ejecución automática de runs interrumpidos → «Queue/Worker» en este BACKLOG.
+- **Estado:** decidida
+
+### Normalización aplicada al persistir el candidato (ajuste sobre el plan)
+
+- **Registrada por:** agente — Fase C (2026-10-03)
+- **Contexto:** el plan reservaba «normalización aplicada» al criterio de la Fase D, pero el upsert del candidato necesita `normalized_data` desde su primera aparición (§19 vive antes de matching).
+- **Impacto:** alcance/fases. La Fase C ya ejecuta `normalizeContent` al persistir (y guarda `issues[]`); la Fase D queda en matching (§23) + validación §28 + ingesta + transiciones, sin repetir normalización.
 - **Estado:** decidida
 
 ## Ideas futuras
@@ -300,7 +356,39 @@ Decisiones tomadas durante la implementación y aprobadas en el plan de v0.3
 - **Fecha:** 2026-10-03
 - **Contexto:** el tipo de entrada común del adapter se definió en la Fase B dentro de `discovery/normalize.ts` porque el contrato completo del adapter (`DiscoveryAdapter`, §14/§23) se crea en la Fase C.
 - **Impacto:** organización del código. Moverlo (o re-exportarlo) a `discovery/adapter.ts` en la Fase C y actualizar imports de tests.
-- **Estado:** pendiente de revisión (se resuelve en la Fase C)
+- **Estado:** **resuelta en la Fase C** (2026-10-03): `CandidateExternalId` y `DiscoveredItemInput` ahora viven en `discovery/adapter.ts`; `normalize.ts` sólo importa los tipos; test actualizado.
+
+### Índice único parcial para «un solo run activo»
+
+- **Propuesta por:** agente
+- **Fecha:** 2026-10-03
+- **Contexto:** la Fase C garantiza un solo run activo con advisory lock transaccional para no migrar; un índice único parcial `ON (id) WHERE status IN ('QUEUED','RUNNING')` daría redundancia a nivel de datos y aceleraría el chequeo.
+- **Impacto:** modelo de datos. Requiere migración aparte (drizzle-kit generate) — previsible en Fase E1 o cierre si la revisión lo considera necesario.
+- **Estado:** pendiente de revisión
+
+### Sincronía de `capabilities`/`version` del seed vs registry de código
+
+- **Propuesta por:** agente
+- **Fecha:** 2026-10-03
+- **Contexto:** el runtime usa `discovery/registry.ts` (decisión de la Fase C) y la fila `discovery_adapters` es metadato; ambos se actualizaron a mano en la Fase C (`REQUIRES_QUERY`).
+- **Impacto:** mantenimiento. Un adapter nuevo o un bump de versión debe tocarse en dos sitios. La Fase E2 (listado/enable/disable) podría derivar capabilities/version del registry y dejar la fila sólo para `enabled`/`configuration`.
+- **Estado:** pendiente de revisión
+
+### Smoke de TVMaze end-to-end con red real pendiente
+
+- **Propuesta por:** agente
+- **Fecha:** 2026-10-03
+- **Contexto:** el smoke de la Fase C usó `manual_import` (sin red) para ser determinista; el adapter TVMaze está cubierto por tests con fixtures pero no por una llamada real a `api.tvmaze.com` desde este entorno.
+- **Impacto:** verificación. Ejecutar al menos una vez (Fase E2/F o cierre) un run `tvmaze_metadata` real para confirmar allowlist, rate limit y formato de respuesta en condiciones de producción.
+- **Estado:** pendiente de revisión
+
+### Modo `INCREMENTAL` rechazado en v0.3 (sólo `FULL`)
+
+- **Propuesta por:** agente
+- **Fecha:** 2026-10-03
+- **Contexto:** §60/§16 definen `mode` (`FULL`/`INCREMENTAL`); el alcance de v0.3 sólo ejecuta corridas completas y no existe lógica de delta.
+- **Impacto:** contrato. `POST /v1/admin/discovery/runs` con `mode` distinto de `FULL` → 400 `INVALID_ARGUMENT`. Implementar deltas cuando exista scheduler/reconciliation (ver «Scheduler» y «Reconciliation Engine»).
+- **Estado:** pendiente de revisión
 
 ### `normalizedData.issues[]` embebido en el jsonb
 
