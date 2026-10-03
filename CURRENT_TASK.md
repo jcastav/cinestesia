@@ -2,7 +2,11 @@
 
 ## Tarea actual
 
-**v0.2.0-alpha — Catálogo mínimo. Plan aprobado por humano (2026-10-02). Luz verde.**
+**Ninguna.** v0.2.0-alpha — Catálogo mínimo: **CERRADA** (tag `v0.2.0-alpha`, 2026-10-03; demo verificada por persona).
+
+La siguiente versión debe definirse y aprobarse por una persona según el roadmap (§12). El contenido de debajo se conserva como histórico del plan aprobado y ejecutado.
+
+## Tarea: v0.2.0-alpha — Catálogo mínimo (COMPLETADA 2026-10-03)
 
 - Objetivo (§12.6): transformar el prototipo en una aplicación con catálogo persistente. Se introduce formalmente el **Motor de Catálogo**.
 - Criterio de salida (§12.6): 1) crear contenido; 2) almacenarlo; 3) consultarlo; 4) visualizarlo desde frontend; 5) reproducir un contenido asociado a una fuente de prueba.
@@ -10,39 +14,39 @@
 
 ## Plan de fases (aprobado)
 
-Un commit coherente por fase; verificación entre cada una; typecheck/lint/build siempre.
+Un commit coherente por fase; verificación entre cada una; typecheck/lint/build siempre. **Todas las fases ejecutadas y aprobadas:** A `d5d167b` · B `1ac4051` · C `d58b4c9` · D `6900dcd` · E `0d08533` · F = commit `chore: cerrar v0.2.0-alpha` + tag.
 
-### Fase A — Esquema de datos v2
+### Fase A — Esquema de datos v2 ✓
 - **Objetivo:** `MediaItem` completo + estructura episódica + géneros + external IDs en Postgres, con migración aplicada y seed enriquecido.
 - **Archivos:** `apps/api/src/db/schema.ts` (media_items += original_title, release_date, runtime_seconds, publication_status, production_status, poster_url, backdrop_url, version; tablas genres, media_genres, media_external_ids, seasons, episodes; índices §6.34k); migración `apps/api/drizzle/0001_*.sql`; `db/seed.ts` (PUBLISHED + artwork + géneros + external id + serie demo 1×3 sin Source); `db/verify.ts`.
 - **Verificación:** typecheck/lint/build + migración aplicada + seed idempotente ×2 + db:verify con tablas nuevas.
 - **Commit:** `feat: esquema v2 del catalogo con estados, generos, external ids y estructura episodica (Fase A)`
 
-### Fase B — Capa de aplicación del Catalog (repository + service + DTOs)
+### Fase B — Capa de aplicación del Catalog (repository + service + DTOs) ✓
 - **Objetivo:** separar HTTP de dominio y ampliar contratos, sin cambiar comportamiento de los 4 endpoints v0.1.
 - **Archivos:** `packages/shared/src/index.ts` (PublicationStatus/ProductionStatus, MediaItemDetail, MediaListItem, página {page,limit,total}, códigos UNAUTHORIZED/CONFLICT); `apps/api/src/catalog/{repository,service,mapper}.ts`; refactor `routes/catalog.ts`, `routes/media.ts`; absorber `lib/media-mapper.ts`.
 - **Verificación:** typecheck/lint/build + respuestas idénticas a v0.1 en los 4 endpoints (regresión).
 - **Commit:** `feat: capa de repositorios y servicios del modulo Catalog (Fase B)`
 
-### Fase C — Lectura pública completa
+### Fase C — Lectura pública completa ✓
 - **Objetivo:** «consultar»: listado paginado, detalle enriquecido, endpoint de episodios.
 - **Archivos:** `routes/media.ts` += `GET /v1/media?page&limit` (solo PUBLISHED, meta page/limit/total, 400 params inválidos, limit máx 50), detalle enriquecido (genres/artwork/status/seasons resumen, §8.13), `GET /v1/media/{id}/seasons/{n}` (§8.14); dual id/slug (aprobado); featured con artwork; tests `node:test` nativos de validaciones del servicio.
 - **Verificación:** curl (meta, filtro DRAFT, 400, serie demo 3 episodios, 404, regresión) + `pnpm test`.
 - **Commit:** `feat: listado paginado, detalle completo y episodios (Fase C)`
 
-### Fase D — Catalog Admin API con token («crear contenido»)
+### Fase D — Catalog Admin API con token («crear contenido») ✓
 - **Objetivo:** crear/editar/publicar contenido por API con autorización mínima (decisión humana: token estático; RBAC real en v0.6/v0.8 → BACKLOG).
 - **Archivos:** `routes/admin-media.ts` (`POST /v1/admin/media` 201, `PATCH /v1/admin/media/{mediaId}`); auth `Authorization: Bearer ADMIN_API_TOKEN` → 401 UNAUTHORIZED (capacidad catalog.write §8.76); validación enums, slug único → 409, genres upsert por slug, externalIds UNIQUE → 409, 422 INVALID_ARGUMENT; `server.ts`, `.env`/`.env.example`.
 - **Verificación:** curl create → listado → detalle; sin token 401; duplicado 409; PATCH DRAFT→PUBLISHED; grep credenciales staged; typecheck/lint/build.
 - **Commit:** `feat: Catalog Admin API con token estatico (Fase D)`
 
-### Fase E — Frontend navegable
+### Fase E — Frontend navegable ✓
 - **Objetivo:** «visualizarlo desde frontend»: listado paginado + detalle completo + estructura de series.
 - **Archivos:** `lib/api.ts` (getCatalog/getSeason); nueva `app/catalog/page.tsx`; `app/media/[id]/page.tsx` (artwork, genres, status, selector de temporada si SERIES; Player solo contenido unitario); `app/page.tsx` (enlace Catálogo).
 - **Verificación:** typecheck/lint/build + smoke HTML + revisión manual en navegador (paginar, serie demo con episodios, película reproduce).
 - **Commit:** `feat: listado y detalle navegable del catalogo (Fase E)`
 
-### Fase F — Cierre + tag
+### Fase F — Cierre + tag ✓
 - **Objetivo:** cerrar versión con evidencia.
 - **Archivos:** `CHANGELOG.md` (`[0.2.0-alpha]`), `DEVELOPMENT_STATE.md` (incluye hashes de fases A–E), `CURRENT_TASK.md`, `BACKLOG.md`.
 - **Verificación:** 5 criterios de §12.6, 4 dimensiones de §12.17, checklist de §12.52, typecheck/lint/build, demo reproducible verificada por persona.
