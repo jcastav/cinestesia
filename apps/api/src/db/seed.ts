@@ -44,6 +44,36 @@ const seedSeriesEpisodes = [
   { episodeNumber: 3, title: "Episodio 3", durationSeconds: 1740 },
 ];
 
+/**
+ * Registry de Discovery Adapters (§6.44 §67). TVMaze decidido para v0.3
+ * (REST + JSON + ids externos + rate limit claro, sin auth); Wikidata → v0.4.
+ */
+const seedDiscoveryAdapters = [
+  {
+    adapterKey: "tvmaze_metadata",
+    name: "TVMaze Metadata API",
+    version: "1.0.0",
+    provider: "tvmaze",
+    enabled: true,
+    capabilities: ["CONTENT_DISCOVERY"],
+    configuration: {
+      baseUrl: "https://api.tvmaze.com",
+      timeoutMs: 10000,
+      maxItems: 20,
+      requestsPerSecond: 5,
+    },
+  },
+  {
+    adapterKey: "manual_import",
+    name: "Manual Import Adapter",
+    version: "1.0.0",
+    provider: "manual",
+    enabled: true,
+    capabilities: ["CONTENT_DISCOVERY"],
+    configuration: {},
+  },
+];
+
 async function upsertMedia(
   values: typeof seedMovie | typeof seedSeries,
 ): Promise<{ id: string; slug: string }> {
@@ -115,6 +145,23 @@ async function ensureExternalId(
   }
 }
 
+async function upsertDiscoveryAdapter(
+  values: (typeof seedDiscoveryAdapters)[number],
+): Promise<void> {
+  const [row] = await db
+    .insert(schema.discoveryAdapters)
+    .values(values)
+    .onConflictDoUpdate({
+      target: schema.discoveryAdapters.adapterKey,
+      set: { ...values, updatedAt: new Date() },
+    })
+    .returning();
+
+  if (!row) {
+    throw new Error(`No se pudo crear el adapter ${values.adapterKey}`);
+  }
+}
+
 async function main(): Promise<void> {
   const genreRows: Record<string, string> = {};
   for (const genre of seedGenres) {
@@ -138,6 +185,10 @@ async function main(): Promise<void> {
     namespace: "demo",
     externalId: "serie-de-prueba",
   });
+
+  for (const adapter of seedDiscoveryAdapters) {
+    await upsertDiscoveryAdapter(adapter);
+  }
 
   const existingSource = await db.query.sources.findFirst({
     where: eq(schema.sources.mediaItemId, movie.id),
@@ -187,7 +238,7 @@ async function main(): Promise<void> {
   }
 
   console.log(
-    `Seed OK: movie id=${movie.id} slug=${movie.slug}; series id=${series.id} slug=${series.slug}; genres=${seedGenres.length}; seasons=1; episodes=${seedSeriesEpisodes.length}`,
+    `Seed OK: movie id=${movie.id} slug=${movie.slug}; series id=${series.id} slug=${series.slug}; genres=${seedGenres.length}; seasons=1; episodes=${seedSeriesEpisodes.length}; discoveryAdapters=${seedDiscoveryAdapters.length}`,
   );
 }
 

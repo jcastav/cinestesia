@@ -15,6 +15,13 @@
       "when": 1790986641505,
       "tag": "0001_parched_moira_mactaggert",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791042894329,
+      "tag": "0002_fancy_lila_cheney",
+      "breakpoints": true
     }
   ]
 }

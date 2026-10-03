@@ -8,6 +8,15 @@ async function main(): Promise<void> {
   const externalIds = await db.select().from(schema.mediaExternalIds);
   const seasons = await db.select().from(schema.seasons);
   const episodes = await db.select().from(schema.episodes);
+  const discoveryAdapters = await db
+    .select()
+    .from(schema.discoveryAdapters);
+  const discoveryRuns = await db.select().from(schema.discoveryRuns);
+  const discoveryCandidates = await db
+    .select()
+    .from(schema.discoveryCandidates);
+  const ingestionJobs = await db.select().from(schema.ingestionJobs);
+  const ingestionErrors = await db.select().from(schema.ingestionErrors);
 
   const published = media.filter(
     (row) => row.publicationStatus === "PUBLISHED",
@@ -24,6 +33,11 @@ async function main(): Promise<void> {
         externalIds: externalIds.length,
         seasons: seasons.length,
         episodes: episodes.length,
+        discoveryAdapters: discoveryAdapters.length,
+        discoveryRuns: discoveryRuns.length,
+        discoveryCandidates: discoveryCandidates.length,
+        ingestionJobs: ingestionJobs.length,
+        ingestionErrors: ingestionErrors.length,
         sample: media[0] ?? null,
         playbackUrl: sources[0]?.playbackUrl ?? null,
       },
@@ -37,7 +51,8 @@ async function main(): Promise<void> {
     sources.length === 0 ||
     genres.length === 0 ||
     seasons.length === 0 ||
-    episodes.length === 0
+    episodes.length === 0 ||
+    discoveryAdapters.length < 2
   ) {
     process.exitCode = 1;
   }
