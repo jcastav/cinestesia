@@ -3,6 +3,7 @@ import type { FastifyReply } from "fastify";
 
 const STATUS_BY_CODE: Record<ApiErrorCode, number> = {
   MEDIA_NOT_FOUND: 404,
+  SEASON_NOT_FOUND: 404,
   SOURCE_NOT_FOUND: 404,
   SOURCE_UNAVAILABLE: 503,
   INVALID_ARGUMENT: 400,

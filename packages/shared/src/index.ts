@@ -40,7 +40,7 @@ export interface SeasonSummary {
   id: string;
   number: number;
   title?: string | null;
-  episodeCount: number;
+  episodesCount: number;
 }
 
 /** §8.14 — episodios de una temporada (Playback Targets display-only en v0.2). */
@@ -59,15 +59,11 @@ export interface EpisodeItem {
 }
 
 /** §8.6 — meta de colección paginada (§8.48). */
-export interface PageMeta {
+export type PageMeta = {
   page: number;
   limit: number;
   total: number;
-}
-
-export interface MediaList {
-  items: MediaSummary[];
-}
+};
 
 export interface FeaturedSection {
   id: string;
@@ -107,6 +103,7 @@ export interface ApiSuccessResponse<T> {
 
 export type ApiErrorCode =
   | "MEDIA_NOT_FOUND"
+  | "SEASON_NOT_FOUND"
   | "SOURCE_NOT_FOUND"
   | "SOURCE_UNAVAILABLE"
   | "INVALID_ARGUMENT"
