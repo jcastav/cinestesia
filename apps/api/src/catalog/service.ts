@@ -3,11 +3,13 @@ import type {
   MediaSummary,
   SeasonEpisodes,
 } from "@cinestesia/shared";
+import type { MediaItemRow } from "../db/schema";
 import { UUID_PATTERN } from "../lib/uuid";
 import { CatalogError } from "./errors";
 import * as mapper from "./mapper";
 import { parsePageParams } from "./pagination";
 import * as repository from "./repository";
+import { validateCreate, validatePatch } from "./validation";
 
 export { CatalogError } from "./errors";
 
@@ -44,6 +46,31 @@ function assertPubliclyVisible(publicationStatus: string): void {
   }
 }
 
+async function buildDetail(row: MediaItemRow): Promise<MediaDetail> {
+  const [genres, seasons] = await Promise.all([
+    repository.findGenreNamesForMedia(row.id),
+    repository.findSeasonsForMedia(row.id),
+  ]);
+
+  return mapper.toMediaDetail(row, genres, seasons);
+}
+
+async function executeWrite<T>(
+  fn: (tx: repository.Transaction) => Promise<T>,
+): Promise<T> {
+  try {
+    return await repository.runTransaction(fn);
+  } catch (error) {
+    if (repository.isUniqueViolation(error)) {
+      throw new CatalogError(
+        "CONFLICT",
+        "Conflicto de unicidad: el recurso ya existe",
+      );
+    }
+    throw error;
+  }
+}
+
 export async function getFeatured(): Promise<MediaSummary[]> {
   const rows = await repository.findFeaturedMedia();
   return rows.map(mapper.toMediaSummary);
@@ -67,12 +94,7 @@ export async function getMediaDetail(
   const row = await resolveMedia(identifier);
   assertPubliclyVisible(row.publicationStatus);
 
-  const [genres, seasons] = await Promise.all([
-    repository.findGenreNamesForMedia(row.id),
-    repository.findSeasonsForMedia(row.id),
-  ]);
-
-  return mapper.toMediaDetail(row, genres, seasons);
+  return buildDetail(row);
 }
 
 export async function getSeasonEpisodes(
@@ -101,4 +123,111 @@ export async function getSeasonEpisodes(
 
   const episodes = await repository.findPublishedEpisodesForSeason(season.id);
   return mapper.toSeasonEpisodes(season, episodes);
+}
+
+export async function createMedia(raw: unknown): Promise<MediaDetail> {
+  const input = validateCreate(raw);
+
+  const row = await executeWrite(async (tx) => {
+    const existing = await repository.findMediaBySlugWithin(
+      tx,
+      input.values.slug,
+    );
+    if (existing) {
+      throw new CatalogError("CONFLICT", "Ya existe contenido con ese slug");
+    }
+
+    for (const external of input.externalIds) {
+      const conflict = await repository.findExternalIdWithin(
+        tx,
+        external.namespace,
+        external.externalId,
+      );
+      if (conflict) {
+        throw new CatalogError(
+          "CONFLICT",
+          `externalId ya registrado: ${external.namespace}/${external.externalId}`,
+        );
+      }
+    }
+
+    const created = await repository.insertMedia(tx, input.values);
+    await repository.replaceGenres(tx, created.id, input.genres);
+    await repository.replaceExternalIds(tx, created.id, input.externalIds);
+    return created;
+  });
+
+  return buildDetail(row);
+}
+
+export async function updateMedia(
+  identifier: string,
+  raw: unknown,
+): Promise<MediaDetail> {
+  if (!identifier || identifier.length > MAX_IDENTIFIER_LENGTH) {
+    throw new CatalogError(
+      "INVALID_ARGUMENT",
+      "mediaId debe ser un identificador válido",
+    );
+  }
+
+  const input = validatePatch(raw);
+
+  const row = await executeWrite(async (tx) => {
+    const existing = UUID_PATTERN.test(identifier)
+      ? await repository.findMediaByIdWithin(tx, identifier)
+      : await repository.findMediaBySlugWithin(tx, identifier);
+
+    if (!existing) {
+      throw new CatalogError(
+        "MEDIA_NOT_FOUND",
+        "No existe el contenido solicitado",
+      );
+    }
+
+    if (
+      input.values.slug !== undefined &&
+      input.values.slug !== existing.slug
+    ) {
+      const conflict = await repository.findMediaBySlugWithin(
+        tx,
+        input.values.slug,
+      );
+      if (conflict) {
+        throw new CatalogError("CONFLICT", "Ya existe contenido con ese slug");
+      }
+    }
+
+    if (input.externalIds !== undefined) {
+      for (const external of input.externalIds) {
+        const conflict = await repository.findExternalIdWithin(
+          tx,
+          external.namespace,
+          external.externalId,
+        );
+        if (conflict && conflict.mediaItemId !== existing.id) {
+          throw new CatalogError(
+            "CONFLICT",
+            `externalId ya registrado por otro contenido: ${external.namespace}/${external.externalId}`,
+          );
+        }
+      }
+    }
+
+    const updated = await repository.updateMedia(tx, existing.id, {
+      ...input.values,
+      version: existing.version + 1,
+    });
+
+    if (input.genres !== undefined) {
+      await repository.replaceGenres(tx, existing.id, input.genres);
+    }
+    if (input.externalIds !== undefined) {
+      await repository.replaceExternalIds(tx, existing.id, input.externalIds);
+    }
+
+    return updated;
+  });
+
+  return buildDetail(row);
 }

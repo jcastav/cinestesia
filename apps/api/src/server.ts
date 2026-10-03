@@ -2,7 +2,10 @@ import "dotenv/config";
 import cors from "@fastify/cors";
 import type { ApiErrorResponse } from "@cinestesia/shared";
 import Fastify from "fastify";
+import { CatalogError } from "./catalog/errors";
+import { sendError } from "./lib/errors";
 import { resolveRequestId } from "./lib/request-id";
+import { registerAdminMediaRoutes } from "./routes/admin-media";
 import { registerCatalogRoutes } from "./routes/catalog";
 import { registerMediaRoutes } from "./routes/media";
 
@@ -20,6 +23,29 @@ async function main(): Promise<void> {
   });
 
   app.setErrorHandler((error, request, reply) => {
+    if (error instanceof CatalogError) {
+      request.log.error(
+        { code: error.code },
+        `Error de dominio del Catalog: ${error.message}`,
+      );
+      return sendError(reply, request.requestId, error.code, error.message);
+    }
+
+    const statusCode = (error as { statusCode?: number }).statusCode;
+    if (
+      typeof statusCode === "number" &&
+      statusCode >= 400 &&
+      statusCode < 500
+    ) {
+      request.log.error(error);
+      return sendError(
+        reply,
+        request.requestId,
+        "INVALID_ARGUMENT",
+        "Solicitud inválida",
+      );
+    }
+
     request.log.error(error);
     const body: ApiErrorResponse = {
       error: {
@@ -28,7 +54,7 @@ async function main(): Promise<void> {
         requestId: request.requestId,
       },
     };
-    void reply.status(500).send(body);
+    return reply.status(500).send(body);
   });
 
   app.setNotFoundHandler((request, reply) => {
@@ -44,7 +70,7 @@ async function main(): Promise<void> {
 
   await app.register(cors, {
     origin: process.env.WEB_ORIGIN ?? "http://localhost:3000",
-    allowedHeaders: ["Content-Type", "X-Request-Id"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Request-Id"],
     exposedHeaders: ["X-Request-Id"],
   });
 
@@ -52,6 +78,7 @@ async function main(): Promise<void> {
 
   await registerCatalogRoutes(app);
   await registerMediaRoutes(app);
+  await registerAdminMediaRoutes(app);
 
   const port = Number(process.env.PORT ?? 3001);
 
