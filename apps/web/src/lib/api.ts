@@ -2,7 +2,10 @@ import type {
   ApiSuccessResponse,
   FeaturedContent,
   MediaDetail,
+  MediaSummary,
+  PageMeta,
   PlaybackReference,
+  SeasonEpisodes,
 } from "@cinestesia/shared";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -17,7 +20,9 @@ export class ApiRequestError extends Error {
   }
 }
 
-async function request<T>(path: string): Promise<T> {
+async function requestEnvelope<T>(
+  path: string,
+): Promise<ApiSuccessResponse<T>> {
   let response: Response;
 
   try {
@@ -41,7 +46,11 @@ async function request<T>(path: string): Promise<T> {
     throw new ApiRequestError(response.status, code);
   }
 
-  const body = (await response.json()) as ApiSuccessResponse<T>;
+  return (await response.json()) as ApiSuccessResponse<T>;
+}
+
+async function request<T>(path: string): Promise<T> {
+  const body = await requestEnvelope<T>(path);
   return body.data;
 }
 
@@ -55,4 +64,40 @@ export function getMedia(mediaId: string): Promise<MediaDetail> {
 
 export function getPlayback(mediaId: string): Promise<PlaybackReference> {
   return request<PlaybackReference>(`/v1/media/${mediaId}/playback`);
+}
+
+export function getSeason(
+  mediaId: string,
+  seasonNumber: number,
+): Promise<SeasonEpisodes> {
+  return request<SeasonEpisodes>(
+    `/v1/media/${mediaId}/seasons/${seasonNumber}`,
+  );
+}
+
+export async function getCatalog(
+  page?: number,
+  limit?: number,
+): Promise<{ items: MediaSummary[]; meta: PageMeta }> {
+  const params = new URLSearchParams();
+  if (page !== undefined) params.set("page", String(page));
+  if (limit !== undefined) params.set("limit", String(limit));
+
+  const query = params.toString();
+  const body = await requestEnvelope<MediaSummary[]>(
+    `/v1/media${query ? `?${query}` : ""}`,
+  );
+
+  const meta = body.meta as PageMeta | undefined;
+  if (
+    !meta ||
+    typeof meta.page !== "number" ||
+    typeof meta.limit !== "number" ||
+    typeof meta.total !== "number"
+  ) {
+    console.error("GET /v1/media respondió sin meta de paginación válida");
+    throw new ApiRequestError(500, "INTERNAL_ERROR");
+  }
+
+  return { items: body.data, meta };
 }

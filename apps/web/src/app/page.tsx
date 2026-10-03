@@ -19,7 +19,15 @@ export default async function HomePage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-8 p-8">
       <header className="flex flex-col gap-2">
-        <h1 className="text-3xl font-semibold">Cinestesia</h1>
+        <div className="flex items-baseline justify-between gap-4">
+          <h1 className="text-3xl font-semibold">Cinestesia</h1>
+          <Link
+            href="/catalog"
+            className="rounded-lg border border-neutral-800 px-4 py-2 text-sm transition-colors hover:border-neutral-600 hover:bg-neutral-900"
+          >
+            Catálogo
+          </Link>
+        </div>
         <p className="text-neutral-400">
           v0.1.0-alpha — primer vertical slice.
         </p>
