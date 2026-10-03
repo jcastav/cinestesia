@@ -156,6 +156,62 @@ Decisiones tomadas durante la implementación y aprobadas en el plan de v0.3
 - **Impacto:** alcance/fases. La Fase C ya ejecuta `normalizeContent` al persistir (y guarda `issues[]`); la Fase D queda en matching (§23) + validación §28 + ingesta + transiciones, sin repetir normalización.
 - **Estado:** decidida
 
+### Máquina de estados del candidato: `NORMALIZING` no se persiste
+
+- **Registrada por:** agente — Fase D (2026-10-03)
+- **Contexto:** §21 incluye `NORMALIZING` entre `DISCOVERED` y `MATCHING`, pero la normalización se aplica ya al persistir (decisión de la Fase C): no existe ventana en la que un candidato persistido esté «sin normalizar».
+- **Impacto:** modelo de datos/comportamiento. `CANDIDATE_TRANSITIONS` (`discovery/pipeline.ts`) cubre `DISCOVERED→MATCHING→MATCHED|AMBIGUOUS|VALIDATING→INGESTING→INGESTED|FAILED`, `AMBIGUOUS→PENDING_REVIEW`, `*→FAILED` y `FAILED→DISCOVERED|MATCHING` (reintento); `assertCandidateTransition` impide `FAILED→INGESTED` y compañía. `NORMALIZING` queda documentado como fase interna de `normalizeContent`, no como estado.
+- **Estado:** decidida
+
+### Pipeline de candidato inyectado como dependencia opcional del orquestador
+
+- **Registrada por:** agente — Fase D (2026-10-03)
+- **Contexto:** los tests de la Fase C (`discovery-run.test.ts`) ejecutan `executeRun` sin matching/ingesta y deben seguir verdes sin reescribirlos; el plan exigía ampliar el orquestador sin romper contratos previos.
+- **Impacto:** diseño/test. `ExecuteRunDeps.pipeline?: CandidatePipeline`; sin pipeline o con candidato no `DISCOVERED` → se contabiliza procesado sin transiciones (idempotencia §37). `discovery/service.ts` siempre inyecta `buildCandidatePipeline()` en producción.
+- **Estado:** decidida
+
+### Contadores del run: definición de `matched`, `newContent`, `ambiguous`, `rejected` y `errors`
+
+- **Registrada por:** agente — Fase D (2026-10-03)
+- **Contexto:** §5/§6 exigen contadores de resultado, pero su semántica exacta (qué suma cada transición) no está cerrada hasta que existe pipeline.
+- **Impacto:** comportamiento/contrato. `matched` = candidatos `INGESTED` con `NO_CHANGE` (entidad existente enlazada); `newContent` = `INGESTED` con `CREATE` (entidad nueva); `ambiguous` = `PENDING_REVIEW`; `rejected` = `FAILED` por validación §28 (`VALIDATION_ERROR`); `errors` = todos los `FAILED` del pipeline (incluye `rejected` y `INGESTION_ERROR`; un run con `rejected>0` termina `PARTIAL`); los errores técnicos no clasificados abortan el run (`FAILED`, §32). `sourcesDiscovered` sigue a 0 (solo `kind=CONTENT`).
+- **Estado:** decidida
+
+### Matching sin año: política conservadora (`≥1 → AMBIGUOUS`)
+
+- **Registrada por:** agente — Fase D (2026-10-03)
+- **Contexto:** §22/§23 no fijan la política cuando el candidato no tiene `releaseYear` y el plan me dejó decidirla y documentarla.
+- **Impacto:** comportamiento/matching. Con año: exacto → `DETERMINISTIC`, >1 → `AMBIGUOUS`, 0 → `NO_MATCH`. Sin año: la búsqueda es sólo título+tipo; 1 coincidencia → `AMBIGUOUS` (no se asume identidad sin año), 0 → `NO_MATCH`. Evita falsos positivos a costa de más revisión manual (E1).
+- **Estado:** decidida
+
+### Validación §28: `ERROR` bloquea, `WARNING`/`INFO` no; año mínimo 1888
+
+- **Registrada por:** agente — Fase D (2026-10-03)
+- **Contexto:** §28 define severidades; el umbral de año procede de §28 (primera obra audiovisual) y es **más estricto que `catalog/validation.ts`** (1..9999), a diferencia de la regla de la Fase B (la normalización nunca más estricta que el catálogo — aquí aplica la validación, no la normalización).
+- **Impacto:** comportamiento. `validateNormalizedContent` devuelve `issues[]`; con al menos un `ERROR` (`TITLE_REQUIRED`, `TITLE_TOO_LONG`, `TYPE_INVALID`, `YEAR_OUT_OF_RANGE` 1888..9999, `EXTERNAL_ID_INVALID`, `SLUG_INVALID`, `RUNTIME_INVALID`, `DATE_INVALID`) el candidato pasa a `FAILED` con `VALIDATION_ERROR` (resumen = códigos+mensajes en `ingestion_errors`) y el run queda `PARTIAL`; `WARNING` (`YEAR_MISSING`, `NORMALIZATION_ISSUE` = avisos de normalización trasladados) e `INFO` (`SYNOPSIS_MISSING`) no bloquean y viajan en el resultado para la revisión de la Fase E1.
+- **Estado:** decidida
+
+### Clasificación de errores de ingesta (`VALIDATION_ERROR` vs `INGESTION_ERROR` vs abort)
+
+- **Registrada por:** agente — Fase D (2026-10-03)
+- **Contexto:** al crear/enlazar en el Catalog pueden fallar la validación de payload, los conflictos de unicidad o fallos técnicos; §32/§40 exigen distinguir rechazo de error.
+- **Impacto:** comportamiento. `CatalogError("INVALID_ARGUMENT")` → `VALIDATION_ERROR` (rechazo, `rejected++`); resto de `CatalogError` (p. ej. `CONFLICT`) → `INGESTION_ERROR` (`errors++`, run `PARTIAL`); cualquier otro error (DB, bug) se relanza y aborta el run como `FAILED` — los fallos técnicos no se ocultan (AGENTS §6).
+- **Estado:** decidida
+
+### Creación desde ingesta: resolución de slug y conflicto de identidad
+
+- **Registrada por:** agente — Fase D (2026-10-03)
+- **Contexto:** `createMediaItemFromIngestion` parte del `slugBase` del candidato (p. ej. `breaking-bad`) que puede colisionar con una entidad ya existente.
+- **Impacto:** comportamiento/unicidad. Slug libre → `base`, `base-2` … `base-50` (máx. 50 intentos, luego `CONFLICT`); la identidad primaria (`namespace`/`externalId` del candidato) que ya pertenece a otra entidad → `CONFLICT` (nunca se re-asigna); identidades secundarias conflictivas se omiten (ya enlazadas a otra entidad) sin fallar la creación. Todo dentro de `db.transaction` con `executeWrite` del Catalog (sin SQL de catálogo desde `discovery/`).
+- **Estado:** decidida
+
+### `GET /v1/admin/media/:mediaId` (detalle admin sin filtro de visibilidad)
+
+- **Registrada por:** agente — Fase D (2026-10-03)
+- **Contexto:** el criterio de smoke exige ver un candidato ingerido como `DRAFT`, invisible en `GET /v1/media/{id}`; el detalle público filtra por `PUBLISHED` (`assertPubliclyVisible`) y no existe ruta admin de lectura (v0.2 solo tenía `POST`/`PATCH`).
+- **Impacto:** contrato público administrativo (adición → §8 junto al resto de endpoints de Discovery). Requiere `requireAdmin`; devuelve `getAdminMediaDetail` (mismo `MediaDetail` público, sin filtro de estado).
+- **Estado:** decidida (consolidar en §8 al cerrar v0.3)
+
 ## Ideas futuras
 
 ### Reemplazar `GET /v1/media/{mediaId}/playback` por PlaybackSession
@@ -380,6 +436,30 @@ Decisiones tomadas durante la implementación y aprobadas en el plan de v0.3
 - **Fecha:** 2026-10-03
 - **Contexto:** el smoke de la Fase C usó `manual_import` (sin red) para ser determinista; el adapter TVMaze está cubierto por tests con fixtures pero no por una llamada real a `api.tvmaze.com` desde este entorno.
 - **Impacto:** verificación. Ejecutar al menos una vez (Fase E2/F o cierre) un run `tvmaze_metadata` real para confirmar allowlist, rate limit y formato de respuesta en condiciones de producción.
+- **Estado:** **resuelta en la Fase D** (2026-10-03): smoke con 3 runs reales contra `api.tvmaze.com` (`"breaking bad"` ×2 y `"the wire"`, `maxItems:5`) — allowlist, rate limit, formato y matching verificados en producción (`SMOKE_D_ALL_PASS`).
+
+### Matching Nivel 2: post-filtro en JS sin límite de filas ni índice de texto
+
+- **Propuesta por:** agente
+- **Fecha:** 2026-10-03
+- **Contexto:** `findMediaItemsByTypeAndYear` prefiltra por índice (`media_type`, `release_year`) y `service.ts` compara títulos en JS con `normalizeTitleKey` (insensible a acentos), porque `lower()` de Postgres no descompone acentos. No hay `LIMIT`: se traen todas las filas del tipo (+año).
+- **Impacto:** rendimiento/escala. Correcto para el catálogo MVP (decena de filas, verificado en el smoke); si el catálogo crece, añadir índice de texto (`pg_trgm`/`tsvector`) o migrar a `media_titles` (§7.28, necesario igualmente para los niveles 3/4).
+- **Estado:** pendiente de revisión
+
+### Candidato puede quedar `INGESTING` si el proceso muere a mitad del pipeline
+
+- **Propuesta por:** agente
+- **Fecha:** 2026-10-03
+- **Contexto:** las transiciones del candidato son saltos separados (`VALIDATING→INGESTING→INGESTED`); `recoverOrphanedRuns()` sólo recupera **runs** al boot. Si el proceso muere justo entre saltos, la fila queda en `INGESTING` y el upsert no la refresca (no es estado descubrible) → el candidato queda estancado y no se reprocesa.
+- **Impacto:** fiabilidad. Baja probabilidad (ventana de ms) y visible en la BD; la recuperación pertenece a un flujo de `STALE`/reconciliación → resolver junto con E1 (review/retry) o Reconciliation (v0.4+).
+- **Estado:** pendiente de revisión
+
+### Resultado de validación §28: los `WARNING`/`INFO` no se persisten en el candidato
+
+- **Propuesta por:** agente
+- **Fecha:** 2026-10-03
+- **Contexto:** `validateNormalizedContent` se ejecuta en el pipeline; sólo los `ERROR` quedan visibles (como `ingestion_errors` con `VALIDATION_ERROR` y sus `details`). Los `WARNING`/`INFO` (p. ej. año ausente, desajuste año/fecha) se descartan al terminar la transición. Los `issues[]` de **normalización** sí persisten (decisión de la Fase B, en `normalizedData.issues[]`).
+- **Impacto:** revisión/UX. La Review Queue (E1) convendría mostrar ambos; promover `validationIssues` a `normalizedData` o a columna propia cuando E1 defina el detalle del candidato.
 - **Estado:** pendiente de revisión
 
 ### Modo `INCREMENTAL` rechazado en v0.3 (sólo `FULL`)
