@@ -95,6 +95,116 @@ export interface PlaybackReference {
   playbackUrl: string;
 }
 
+/**
+ * Discovery & Ingestion — contratos de dominio (§6.44 §3–§12).
+ * Tipos compartidos entre API y futura UI; los DTO de fila (row → dto) se
+ * resuelven en la capa de repositorio.
+ */
+
+/** §6.44 §5 — estados de un Discovery Run. */
+export type DiscoveryRunStatus =
+  | "QUEUED"
+  | "RUNNING"
+  | "SUCCEEDED"
+  | "PARTIAL"
+  | "FAILED"
+  | "CANCELLED";
+
+/** §6.44 §16 — disparador del run (v0.3 solo crea MANUAL). */
+export type DiscoveryRunTrigger = "MANUAL" | "SCHEDULED";
+
+/** §6.44 §16 — modo de ejecución del run. */
+export type DiscoveryRunMode = "FULL" | "INCREMENTAL";
+
+/** §6.44 §4 — kind inicial del candidato (EPISODE/PERSON/... no hasta necesidad). */
+export type CandidateKind = "CONTENT" | "SOURCE";
+
+/** §6.44 §12 — estados del candidato; las transiciones deben estar controladas. */
+export type CandidateStatus =
+  | "DISCOVERED"
+  | "NORMALIZING"
+  | "MATCHING"
+  | "MATCHED"
+  | "AMBIGUOUS"
+  | "DEDUPLICATING"
+  | "ENRICHING"
+  | "VALIDATING"
+  | "PENDING_REVIEW"
+  | "APPROVED"
+  | "REJECTED"
+  | "INGESTING"
+  | "INGESTED"
+  | "FAILED"
+  | "STALE";
+
+/** §6.44 §6 — contadores operacionales del run (no son fuente de verdad). */
+export type DiscoveryRunCounters = {
+  candidatesFound: number;
+  processed: number;
+  matched: number;
+  newContent: number;
+  ambiguous: number;
+  rejected: number;
+  sourcesDiscovered: number;
+  errors: number;
+};
+
+/** §6.44 §5/§6 — Discovery Run. */
+export interface DiscoveryRunDto {
+  runId: string;
+  adapterId: string;
+  adapterVersion: string;
+  trigger: DiscoveryRunTrigger;
+  mode: DiscoveryRunMode;
+  status: DiscoveryRunStatus;
+  query?: string | null;
+  maxItems?: number | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  durationMs?: number | null;
+  counters: DiscoveryRunCounters;
+  errorSummary?: string | null;
+  createdAt: string;
+}
+
+/** §6.44 §7 — Match Result. */
+export interface MatchResult {
+  result: "MATCHED" | "NO_MATCH" | "AMBIGUOUS";
+  entityType?: "MEDIA_ITEM";
+  entityId?: string | null;
+  confidence?: "HIGH" | "MEDIUM" | "LOW" | null;
+  strategy?: string | null;
+}
+
+/** §6.44 §11 — Provenance Contract (toda incorporación lo conserva). */
+export interface CandidateProvenance {
+  provider: string;
+  externalId: string;
+  adapterId: string;
+  adapterVersion: string;
+  runId: string;
+  discoveredAt: string;
+  payloadChecksum: string;
+}
+
+/** §6.44 §3 — DiscoveryCandidate (superset operativo: status/version para admin §18–§20). */
+export interface DiscoveryCandidateDto {
+  candidateId: string;
+  kind: CandidateKind;
+  provider: string;
+  externalId: string;
+  adapter: { id: string; version: string };
+  runId: string;
+  status: CandidateStatus;
+  discoveredAt: string;
+  normalized?: Record<string, unknown> | null;
+  rawPayload?: Record<string, unknown> | null;
+  payloadChecksum: string;
+  match?: MatchResult | null;
+  rejectionReason?: string | null;
+  version: number;
+}
+
 export interface ApiSuccessResponse<T> {
   data: T;
   meta?: Record<string, unknown>;
@@ -109,6 +219,12 @@ export type ApiErrorCode =
   | "INVALID_ARGUMENT"
   | "UNAUTHORIZED"
   | "CONFLICT"
+  | "RUN_NOT_FOUND"
+  | "CANDIDATE_NOT_FOUND"
+  | "ADAPTER_NOT_FOUND"
+  | "ADAPTER_DISABLED"
+  | "CANDIDATE_NOT_PENDING"
+  | "RUN_ALREADY_RUNNING"
   | "INTERNAL_ERROR";
 
 export interface ApiErrorResponse {

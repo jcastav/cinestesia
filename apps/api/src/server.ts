@@ -3,6 +3,7 @@ import cors from "@fastify/cors";
 import type { ApiErrorResponse } from "@cinestesia/shared";
 import Fastify from "fastify";
 import { CatalogError } from "./catalog/errors";
+import { DiscoveryError } from "./discovery/errors";
 import { sendError } from "./lib/errors";
 import { resolveRequestId } from "./lib/request-id";
 import { registerAdminMediaRoutes } from "./routes/admin-media";
@@ -27,6 +28,14 @@ async function main(): Promise<void> {
       request.log.error(
         { code: error.code },
         `Error de dominio del Catalog: ${error.message}`,
+      );
+      return sendError(reply, request.requestId, error.code, error.message);
+    }
+
+    if (error instanceof DiscoveryError) {
+      request.log.error(
+        { code: error.code },
+        `Error de dominio de Discovery: ${error.message}`,
       );
       return sendError(reply, request.requestId, error.code, error.message);
     }

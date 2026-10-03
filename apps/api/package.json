@@ -7,7 +7,7 @@
     "build": "tsc --noEmit",
     "start": "tsx src/server.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/catalog.test.ts tests/validation.test.ts",
+    "test": "tsx --test tests/catalog.test.ts tests/validation.test.ts tests/discovery-normalize.test.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx src/db/seed.ts",
