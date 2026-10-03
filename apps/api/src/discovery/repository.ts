@@ -17,6 +17,10 @@ import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "../db";
 import { DiscoveryError } from "./errors";
 import type {
+  CandidateStorePort,
+  CandidateTransitionPatch,
+} from "./pipeline";
+import type {
   CandidateUpsertValues,
   DiscoveryRepository,
   IngestionErrorValues,
@@ -216,9 +220,49 @@ async function recordError(values: IngestionErrorValues): Promise<void> {
   });
 }
 
+/**
+ * §6.44 §21 — transiciones controladas del candidato (Fase D).
+ * Condiciona la escritura al estado `from` (optimista, igual que el upsert):
+ * si la fila no está en el estado esperado no se modifica y se lanza error —
+ * el orquestador decide si eso aborta el run. `version` (OCC §35) sube con
+ * cada transición.
+ */
+async function transition(
+  candidateId: string,
+  from: string,
+  to: string,
+  patch?: CandidateTransitionPatch,
+): Promise<void> {
+  const [row] = await db
+    .update(schema.discoveryCandidates)
+    .set({
+      status: to,
+      ...(patch ?? {}),
+      version: sql`${schema.discoveryCandidates.version} + 1`,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(schema.discoveryCandidates.id, candidateId),
+        eq(schema.discoveryCandidates.status, from),
+      ),
+    )
+    .returning({ id: schema.discoveryCandidates.id });
+
+  if (!row) {
+    throw new Error(
+      `No se pudo transicionar el candidato ${candidateId}: ${from} → ${to}`,
+    );
+  }
+}
+
 export const discoveryRepository: DiscoveryRepository = {
   claimRun,
   finishRun,
   upsertCandidate,
   recordError,
+};
+
+export const candidateStore: CandidateStorePort = {
+  transition,
 };

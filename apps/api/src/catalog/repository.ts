@@ -45,6 +45,53 @@ export function findMediaBySlug(slug: string) {
   });
 }
 
+/**
+ * §6.44 §22 Nivel 1 — entidad por identidad externa (namespace ≡ provider).
+ * Devuelve la fila completa de `media_items` (la consume Discovery vía
+ * `catalog/service.ts`; nunca hay SQL de catálogo fuera de este módulo).
+ */
+export function findMediaItemByExternalId(
+  namespace: string,
+  externalId: string,
+) {
+  return db
+    .select({ media: schema.mediaItems })
+    .from(schema.mediaExternalIds)
+    .innerJoin(
+      schema.mediaItems,
+      eq(schema.mediaExternalIds.mediaItemId, schema.mediaItems.id),
+    )
+    .where(
+      and(
+        eq(schema.mediaExternalIds.namespace, namespace),
+        eq(schema.mediaExternalIds.externalId, externalId),
+      ),
+    )
+    .limit(1)
+    .then((rows) => rows[0]?.media);
+}
+
+/**
+ * §6.44 §22 Nivel 2 — prefiltra por tipo (+ año cuando existe) aprovechando
+ * los índices; la comparación de títulos (insensible a acentos/mayúsculas) se
+ * hace en `service.ts` porque `lower()` de Postgres no descompone acentos.
+ * Sin límite: en v0.3 el catálogo es pequeño (verificado en Fase G).
+ */
+export function findMediaItemsByTypeAndYear(
+  mediaType: string,
+  releaseYear: number | null,
+) {
+  const where =
+    releaseYear === null
+      ? eq(schema.mediaItems.mediaType, mediaType)
+      : and(
+          eq(schema.mediaItems.mediaType, mediaType),
+          eq(schema.mediaItems.releaseYear, releaseYear),
+        );
+
+  return db.select().from(schema.mediaItems).where(where);
+}
+
 export async function listPublishedMedia(page: number, limit: number) {
   const where = eq(schema.mediaItems.publicationStatus, "PUBLISHED");
 
@@ -166,6 +213,18 @@ export async function insertMedia(
   }
 
   return row;
+}
+
+/** Enlace idempotente de external id (ingesta §6.44 §44): ya existe → no-op. */
+export async function insertExternalIdWithin(
+  tx: Transaction,
+  mediaId: string,
+  external: { namespace: string; externalId: string; externalUrl?: string | null },
+): Promise<void> {
+  await tx
+    .insert(schema.mediaExternalIds)
+    .values({ mediaItemId: mediaId, ...external })
+    .onConflictDoNothing();
 }
 
 export async function updateMedia(

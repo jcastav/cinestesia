@@ -2,11 +2,23 @@
  * Orquestador de Discovery Runs (§6.44 §20–§22, §31–§32, §40).
  *
  * Ejecuta un run reclamado (QUEUED → RUNNING) sin bloquear el proceso:
- * `executeRun` nunca relanza errores — todo fallo termina como fila
- * `ingestion_errors` (§40) y el estado del run (`SUCCEEDED`/`PARTIAL`/`FAILED`
- * según §32). Los contadores son operacionales (§6): sólo found/processed/errors
- * se llenan en la Fase C; matched/newContent/ambiguous/rejected/
- * sourcesDiscovered esperan a matching e ingesta (Fase D/E1).
+ * `executeRun` nunca relanza errores de dominio — todo fallo termina como
+ * fila `ingestion_errors` (§40) y el estado del run (`SUCCEEDED`/`PARTIAL`/
+ * `FAILED` según §32). Los contadores son operacionales (§6): found/processed/
+ * errors ya en la Fase C; matched/newContent/ambiguous/rejected se completan
+ * en la Fase D con el pipeline de candidatos.
+ *
+ * Pipeline (Fase D): tras persistir el candidato en DISCOVERED se ejecuta
+ * `deps.pipeline` (matching §22 → validación §28 → ingesta §44) que aplica
+ * las transiciones controladas de §21 y devuelve un `PipelineOutcome`:
+ * - `INGESTED`      → counters.matched (NO_CHANGE) o counters.newContent (CREATE)
+ * - `PENDING_REVIEW`→ counters.ambiguous (espera Fase E1)
+ * - `FAILED`        → counters.errors (+ counters.rejected si fue VALIDATION_ERROR)
+ *                       y fila `ingestion_errors` (§40)
+ * Los candidatos cuya fila ya no está en DISCOVERED (INGESTED/PENDING_REVIEW
+ * de un run anterior) se contabilizan como `processed` sin re-ejecutar
+ * (idempotencia §37). Sin `pipeline` inyectado los candidatos quedan en
+ * DISCOVERED (comportamiento de la Fase C; `service.ts` siempre inyecta).
  *
  * El repositorio es un puerto inyectado: los tests usan un doble en memoria
  * y producción lo resuelve `discovery/repository.ts` (sin Redis ni worker —
@@ -19,7 +31,12 @@ import type { DiscoveryAdapter, DiscoveredItemInput } from "./adapter";
 import { DiscoveryError } from "./errors";
 import { DiscoveryUpstreamError } from "./http";
 import { emptyRunCounters } from "./mapper";
-import { hasStableIdentity, normalizeContent } from "./normalize";
+import {
+  hasStableIdentity,
+  normalizeContent,
+  type NormalizedContent,
+} from "./normalize";
+import type { CandidatePipeline } from "./pipeline";
 import { payloadChecksum } from "./provenance";
 
 const ERROR_SUMMARY_MAX = 1000;
@@ -65,6 +82,12 @@ export interface DiscoveryRepository {
 export interface ExecuteRunDeps {
   repo: DiscoveryRepository;
   resolveAdapter(adapterId: string): DiscoveryAdapter | undefined;
+  /**
+   * Fase D: matching §22 → validación §28 → ingesta §44 con transiciones
+   * controladas (§21). Opcional para aislar la Fase C en tests; `service.ts`
+   * lo inyecta siempre en producción.
+   */
+  pipeline?: CandidatePipeline;
   logError?(message: string, error: unknown): void;
 }
 
@@ -74,7 +97,58 @@ function truncateSummary(value: string): string {
     : value;
 }
 
-/** Procesa un ítem: normaliza + persiste, o registra su error (§19, §40). */
+/** Aplica el pipeline al candidato persistido y actualiza los contadores (§6). */
+async function applyPipeline(
+  candidate: DiscoveryCandidateRow,
+  normalized: NormalizedContent,
+  run: DiscoveryRunRow,
+  counters: DiscoveryRunCounters,
+  deps: ExecuteRunDeps,
+): Promise<string | null> {
+  const pipeline = deps.pipeline;
+  if (!pipeline || candidate.status !== "DISCOVERED") {
+    // Fila ya procesada por un run anterior (INGESTED/PENDING_REVIEW/…):
+    // idempotencia §37 — se contabiliza como procesada sin re-ejecutar.
+    return null;
+  }
+
+  // Error técnico (p. ej. base de datos): se propaga y aborta el run (§32 FAILED).
+  const outcome = await pipeline.process({
+    id: candidate.id,
+    kind: "CONTENT",
+    normalized,
+  });
+
+  if (outcome.kind === "INGESTED") {
+    if (outcome.operation === "CREATE") {
+      counters.newContent++;
+    } else {
+      counters.matched++;
+    }
+    return null;
+  }
+
+  if (outcome.kind === "PENDING_REVIEW") {
+    counters.ambiguous++;
+    return null;
+  }
+
+  counters.errors++;
+  if (outcome.errorCode === "VALIDATION_ERROR") {
+    counters.rejected++;
+  }
+  await deps.repo.recordError({
+    runId: run.id,
+    candidateId: candidate.id,
+    errorCode: outcome.errorCode,
+    message: outcome.message,
+    attempt: 1,
+    details: outcome.details ?? null,
+  });
+  return outcome.message;
+}
+
+/** Procesa un ítem: normaliza + persiste + pipeline, o registra su error (§19, §21, §40). */
 async function processItem(
   item: DiscoveredItemInput,
   run: DiscoveryRunRow,
@@ -84,7 +158,7 @@ async function processItem(
   const checksum = payloadChecksum(item.raw);
   try {
     const normalized = normalizeContent(item);
-    await deps.repo.upsertCandidate({
+    const candidate = await deps.repo.upsertCandidate({
       runId: run.id,
       kind: "CONTENT",
       provider: normalized.provider,
@@ -97,8 +171,15 @@ async function processItem(
       payloadChecksum: checksum,
       processedAt: new Date(),
     });
+    const pipelineMessage = await applyPipeline(
+      candidate,
+      normalized,
+      run,
+      counters,
+      deps,
+    );
     counters.processed++;
-    return null;
+    return pipelineMessage;
   } catch (error) {
     // Sólo errores de dominio de normalización: un error técnico (DB) aborta
     // el run vía el catch de executeRun (§32 FAILED).

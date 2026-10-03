@@ -13,10 +13,12 @@
  */
 
 import type { DiscoveryRunDto, PageMeta } from "@cinestesia/shared";
+import * as catalogService from "../catalog/service";
 import { UUID_PATTERN } from "../lib/uuid";
 import { DiscoveryError } from "./errors";
 import { executeRun } from "./orchestrator";
 import { emptyRunCounters, toRunDto } from "./mapper";
+import { createPipeline, type CandidatePipeline } from "./pipeline";
 import * as repository from "./repository";
 import { findRegisteredAdapter } from "./registry";
 import {
@@ -25,6 +27,21 @@ import {
 } from "./validation";
 
 const REQUIRES_QUERY = "REQUIRES_QUERY";
+
+/**
+ * Pipeline de candidatos de la Fase D (§6.44 §20–§22, §28, §44): su cerebro
+ * es puro (`discovery/pipeline.ts`); aquí se le inyectan los puertos reales —
+ * matching/ingesta contra el Application Service del Catalog (§44: sin SQL de
+ * `media_items` fuera de `catalog/repository.ts`) y el store de transiciones
+ * de `discovery/repository.ts`.
+ */
+export function buildCandidatePipeline(): CandidatePipeline {
+  return createPipeline({
+    matching: catalogService,
+    ingestion: catalogService,
+    store: repository.candidateStore,
+  });
+}
 
 export type LogErrorFn = (message: string, error: unknown) => void;
 
@@ -90,6 +107,7 @@ export async function createRun(
   void executeRun(run.id, {
     repo: repository.discoveryRepository,
     resolveAdapter: findRegisteredAdapter,
+    pipeline: buildCandidatePipeline(),
     logError,
   }).catch((error: unknown) => {
     logError?.("Discovery Run terminó con una excepción inesperada", error);
