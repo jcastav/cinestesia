@@ -65,6 +65,41 @@ Decisiones tomadas durante la implementación y aprobadas en el plan de v0.3
 - **Impacto:** seguridad/UI. El operador pega el token en la página; nunca se persiste en el repo.
 - **Estado:** decidida (alternativas descartadas registradas en la conversación de aprobación)
 
+### Límites de normalización alineados con `catalog/validation.ts`
+
+- **Registrada por:** agente — Fase B (2026-10-03)
+- **Contexto:** la normalización (§6.44 §19) y la validación (§28) viven en fases distintas (B y D); si la normalización impusiera límites más estrictos que el catálogo, la Fase D rechazaría candidatos que la normalización ya aceptó.
+- **Impacto:** modelo/validación. Reglas únicas: `title`/`originalTitle` ≤ 500, `synopsis` ≤ 5000, `releaseYear` entero 1..9999, `runtimeSeconds` 1..2147483647, URLs `^https?:\/\/\S+$`, `namespace` ≤ 64 / `externalId` ≤ 255 únicos por par, `slugBase` ≤ 100 con `SLUG_PATTERN`. Los sinónimos de `type` (movie/series/…) viven en `MEDIA_TYPES` y son ampliables; desconocido → `OTHER` + issue.
+- **Estado:** decidida
+
+### Política de errores de normalización: `issues[]` vs abort
+
+- **Registrada por:** agente — Fase B (2026-10-03)
+- **Contexto:** AGENTS §6 (no ocultar errores técnicos) vs. robustez del pipeline: un campo inválido aislado no debe matar el candidato entero. La identidad (`provider`/`externalId`/`title` o `raw` no-objeto) sí aborta con `DiscoveryError("INVALID_ARGUMENT")` porque sin ella no hay candidato persistible.
+- **Impacto:** comportamiento. Todo lo demás (año, runtime, URLs, `externalIds` malformados, `type` desconocido, truncados) se descarta y se registra en `normalizedData.issues[]` (visible en el detalle del candidato, Fase E1) en lugar de fallar.
+- **Estado:** decidida
+
+### Derivación del año desde `releaseDate` y detección de desajuste
+
+- **Registrada por:** agente — Fase B (2026-10-03)
+- **Contexto:** muchos proveedores emiten fecha completa pero no año (o un año inválido tipo `N/A`); §7.18 permite `releaseYear` y `releaseDate` por separado.
+- **Impacto:** comportamiento. Si `releaseYear` falta o se descarta por inválido y `releaseDate` es válida → se deriva el año (con issue cuando el original era inválido); si ambos existen y discrepan → se conservan los dos y se registra `issues` (la revisión editorial de la Fase E1 lo ve).
+- **Estado:** decidida
+
+### Checksum canónico (claves ordenadas) para `payload_checksum`
+
+- **Registrada por:** agente — Fase B (2026-10-03)
+- **Contexto:** §6.44 §3/§11 exige `sha256:...` (≤ 80 chars, `varchar(80)`), pero el orden de claves de un objeto JSON depende de cómo el adapter construya el payload: sin canonicidad, dos ejecuciones idénticas producirían checksums distintos.
+- **Impacto:** modelo/auditoría. `sha256:<hex>` sobre JSON con claves ordenadas recursivamente; el orden de los arreglos se conserva (es significativo). Test: mismo payload en distinto orden → mismo checksum.
+- **Estado:** decidida
+
+### DTOs compartidos como superset operativo del contrato conceptual
+
+- **Registrada por:** agente — Fase B (2026-10-03)
+- **Contexto:** §3 define `DiscoveryCandidate` mínimo (identidad + normalized + checksum); los endpoints admin (§18–§20) necesitan además `status`, `version` (OCC) y `rejectionReason`, y §5/§6 definen `DiscoveryRunDto` con contadores.
+- **Impacto:** contrato. `DiscoveryCandidateDto` = §3 + `status`/`version`/`rejectionReason`/`match`/`rawPayload` (solo se exponen en rutas admin); `DiscoveryRunDto` añade `mode`/`query`/`maxItems`/`counters`/`errorSummary`. Los mappers row → DTO llegan en las fases C/E1 (aún no existe repositorio de discovery).
+- **Estado:** decidida
+
 ## Ideas futuras
 
 ### Reemplazar `GET /v1/media/{mediaId}/playback` por PlaybackSession
@@ -258,6 +293,30 @@ Decisiones tomadas durante la implementación y aprobadas en el plan de v0.3
 - **Contexto:** §61 la permite pero prohíbe crearla «por estética» si una llamada de módulo basta en el modular monolith MVP.
 - **Impacto:** arquitectura. Solo si en el futuro Discovery se separa en proceso/servicio.
 - **Estado:** pendiente de revisión (probablemente descartada mientras sea monolith)
+
+### `DiscoveredItemInput` provisional en `normalize.ts`
+
+- **Propuesta por:** agente
+- **Fecha:** 2026-10-03
+- **Contexto:** el tipo de entrada común del adapter se definió en la Fase B dentro de `discovery/normalize.ts` porque el contrato completo del adapter (`DiscoveryAdapter`, §14/§23) se crea en la Fase C.
+- **Impacto:** organización del código. Moverlo (o re-exportarlo) a `discovery/adapter.ts` en la Fase C y actualizar imports de tests.
+- **Estado:** pendiente de revisión (se resuelve en la Fase C)
+
+### `normalizedData.issues[]` embebido en el jsonb
+
+- **Propuesta por:** agente
+- **Fecha:** 2026-10-03
+- **Contexto:** los avisos de normalización (campos descartados/truncados) se guardan dentro de `normalized_data` (jsonb) en lugar de una columna propia, para no añadir DDL en la Fase B.
+- **Impacto:** modelo de datos/consulta. Si en alguna fase se necesita filtrar candidatos con issues (p. ej. ordenar la Review Queue), promover `issues` a columna propia con migración.
+- **Estado:** pendiente de revisión
+
+### 6 códigos de error nuevos de Discovery sin documentar en §8
+
+- **Propuesta por:** agente
+- **Fecha:** 2026-10-03
+- **Contexto:** `RUN_NOT_FOUND`, `CANDIDATE_NOT_FOUND`, `ADAPTER_NOT_FOUND`, `ADAPTER_DISABLED`, `CANDIDATE_NOT_PENDING` (404/409) y `RUN_ALREADY_RUNNING` (409) existen en `ApiErrorCode` desde la Fase B; la Sección 8 todavía no los referencia.
+- **Impacto:** contrato público. Documentarlos junto a los endpoints de Discovery/Ingestion cuando se añadan a §8 (misma entrada/destino que «Endpoints de Discovery/Ingestion en el contrato de la Sección 8»).
+- **Estado:** pendiente de revisión
 
 <!-- Formato por entrada:
 ### <Título de la idea>

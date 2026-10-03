@@ -3,7 +3,7 @@
 ## Tarea actual
 
 **v0.3.0-alpha — Discovery & Ingestion: EN CURSO.**
-Fase A completada y verificada; **Fase B pendiente de aprobación**.
+Fases A y B completadas y verificadas; **Fase C pendiente de aprobación**.
 
 Objetivo (§12.7): que la plataforma descubra información externa, la convierta en
 candidatos, determine a qué contenido pertenece e incorpore al Catalog de forma
@@ -35,11 +35,11 @@ queue/jobs/errores) y **E2** (adapters admin); adapter API keyless decidido =
 - **Verificación:** typecheck/lint/build/test en verde; migración aplicada; `db:seed` ×2 idempotente; `db:verify` → `discoveryAdapters: 2, discoveryRuns: 0, discoveryCandidates: 0, ingestionJobs: 0, ingestionErrors: 0`; catálogo intacto (mediaItems 2, published 2, sources 1, genres 4, mediaGenres 4, externalIds 2, seasons 1, episodes 3).
 - **Commit código:** `3a5587b` · **Commit docs:** `docs: registrar Fase A en BACKLOG y DEVELOPMENT_STATE`
 
-### Fase B — Contratos de dominio, normalización y provenance
+### Fase B — Contratos de dominio, normalización y provenance ✓
 - **Objetivo:** tipos compartidos + motor puro de normalización y provenance (criterios 4 y núcleo del 5), testable sin red ni BD.
-- **Archivos:** `packages/shared/src/index.ts` (`DiscoveryRunStatus`, `CandidateKind`, `CandidateStatus`, `DiscoveryRunDto`, `RunCounters`, `DiscoveryCandidateDto`; `ApiErrorCode` += `RUN_NOT_FOUND`, `CANDIDATE_NOT_FOUND`, `ADAPTER_NOT_FOUND`, `ADAPTER_DISABLED`, `CANDIDATE_NOT_PENDING`, `RUN_ALREADY_RUNNING`); `apps/api/src/discovery/errors.ts` (`DiscoveryError`); `discovery/normalize.ts` (raw → normalized: título, año, tipo → `MOVIE/SERIES`, sinopsis, runtime, `externalIds[]`, slug base); `discovery/provenance.ts` (sha256 del payload); `lib/errors.ts` (`STATUS_BY_CODE` ampliado); `server.ts` (mapear `DiscoveryError`); `apps/api/tests/discovery-normalize.test.ts`.
-- **Verificación:** typecheck/lint/build/test en verde (normalización: tipo/año/ids/payload inválido; provenance: mismo payload → mismo checksum).
-- **Commit:** `feat: contratos, normalizacion y provenance del Discovery (Fase B)`
+- **Archivos:** `packages/shared/src/index.ts` (`DiscoveryRunStatus`, `CandidateKind`, `CandidateStatus`, `DiscoveryRunDto`, `DiscoveryRunCounters`, `DiscoveryCandidateDto`, `MatchResult`, `CandidateProvenance`; `ApiErrorCode` += `RUN_NOT_FOUND`, `CANDIDATE_NOT_FOUND`, `ADAPTER_NOT_FOUND`, `ADAPTER_DISABLED`, `CANDIDATE_NOT_PENDING`, `RUN_ALREADY_RUNNING`); `apps/api/src/discovery/errors.ts` (`DiscoveryError`); `discovery/normalize.ts` (raw → normalized: título, año, tipo → `MOVIE/SERIES`, sinopsis, runtime, `externalIds[]`, slug base, `issues[]`); `discovery/provenance.ts` (sha256 canónico del payload); `lib/errors.ts` (`STATUS_BY_CODE` ampliado: 404/409); `server.ts` (mapear `DiscoveryError`); `apps/api/tests/discovery-normalize.test.ts`; `apps/api/package.json` (script `test`).
+- **Verificación:** typecheck/lint/build en verde; **`pnpm test` 30/30** (20 de v0.2 + 10 nuevos: slugify, normalización feliz, tipos, fechas/derivación de año, runtime/URLs, externalIds, identidad/payload, truncados, checksum canónico, provenance §11).
+- **Commit código:** `15799d7` · **Commit docs:** `docs: registrar Fase B en BACKLOG y DEVELOPMENT_STATE`
 
 ### Fase C — Discovery Run manual de extremo a extremo con el primer adapter
 - **Objetivo:** criterios 1–4 y 9 de §12.7 (adapter obtiene info externa, se crea Run, candidatos con provenance, re-ejecución sin duplicados).
