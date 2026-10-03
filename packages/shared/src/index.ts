@@ -8,6 +8,12 @@ export type MediaType =
   | "SPECIAL"
   | "OTHER";
 
+/** §7.19 — estado de publicación en nuestra plataforma. */
+export type PublicationStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+
+/** §7.20 — estado de la obra original (dimensión distinta de publication_status). */
+export type ProductionStatus = "UPCOMING" | "ONGOING" | "ENDED" | "UNKNOWN";
+
 export interface MediaSummary {
   id: string;
   slug: string;
@@ -20,6 +26,47 @@ export interface MediaSummary {
 
 export interface MediaDetail extends MediaSummary {
   synopsis?: string | null;
+  originalTitle?: string | null;
+  releaseDate?: string | null;
+  runtimeSeconds?: number | null;
+  status?: PublicationStatus;
+  productionStatus?: ProductionStatus | null;
+  genres?: string[];
+  seasons?: SeasonSummary[];
+}
+
+/** §8.13 — resumen de temporada embebido en el detalle. */
+export interface SeasonSummary {
+  id: string;
+  number: number;
+  title?: string | null;
+  episodeCount: number;
+}
+
+/** §8.14 — episodios de una temporada (Playback Targets display-only en v0.2). */
+export interface SeasonEpisodes {
+  season: { id: string; number: number; title?: string | null };
+  episodes: EpisodeItem[];
+}
+
+export interface EpisodeItem {
+  id: string;
+  number: number;
+  title: string;
+  thumbnailUrl?: string | null;
+  durationSeconds?: number | null;
+  airDate?: string | null;
+}
+
+/** §8.6 — meta de colección paginada (§8.48). */
+export interface PageMeta {
+  page: number;
+  limit: number;
+  total: number;
+}
+
+export interface MediaList {
+  items: MediaSummary[];
 }
 
 export interface FeaturedSection {
@@ -63,6 +110,8 @@ export type ApiErrorCode =
   | "SOURCE_NOT_FOUND"
   | "SOURCE_UNAVAILABLE"
   | "INVALID_ARGUMENT"
+  | "UNAUTHORIZED"
+  | "CONFLICT"
   | "INTERNAL_ERROR";
 
 export interface ApiErrorResponse {

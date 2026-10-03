@@ -6,15 +6,12 @@ import type {
 } from "@cinestesia/shared";
 import { and, eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
+import * as catalogRepository from "../catalog/repository";
+import { CatalogError, getMediaDetail } from "../catalog/service";
 import { db, schema } from "../db";
 import { sendError } from "../lib/errors";
-import { toMediaDetail, toSourceSummary, UUID_PATTERN } from "../lib/media-mapper";
-
-async function findMedia(mediaId: string) {
-  return db.query.mediaItems.findFirst({
-    where: eq(schema.mediaItems.id, mediaId),
-  });
-}
+import { toSourceSummary } from "../lib/source-mapper";
+import { UUID_PATTERN } from "../lib/uuid";
 
 async function findActiveSource(mediaId: string) {
   return db.query.sources.findFirst({
@@ -29,32 +26,21 @@ export async function registerMediaRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Params: { mediaId: string } }>("/v1/media/:mediaId", async (request, reply) => {
     const { mediaId } = request.params;
 
-    if (!UUID_PATTERN.test(mediaId)) {
-      return sendError(
-        reply,
-        request.requestId,
-        "INVALID_ARGUMENT",
-        "mediaId debe ser un identificador válido",
-      );
+    try {
+      const detail = await getMediaDetail(mediaId);
+
+      const body: ApiSuccessResponse<MediaDetail> = {
+        data: detail,
+        requestId: request.requestId,
+      };
+
+      return reply.send(body);
+    } catch (error) {
+      if (error instanceof CatalogError) {
+        return sendError(reply, request.requestId, error.code, error.message);
+      }
+      throw error;
     }
-
-    const media = await findMedia(mediaId);
-
-    if (!media) {
-      return sendError(
-        reply,
-        request.requestId,
-        "MEDIA_NOT_FOUND",
-        "No existe el contenido solicitado",
-      );
-    }
-
-    const body: ApiSuccessResponse<MediaDetail> = {
-      data: toMediaDetail(media),
-      requestId: request.requestId,
-    };
-
-    return reply.send(body);
   });
 
   app.get<{ Params: { mediaId: string } }>(
@@ -71,7 +57,7 @@ export async function registerMediaRoutes(app: FastifyInstance): Promise<void> {
         );
       }
 
-      const media = await findMedia(mediaId);
+      const media = await catalogRepository.findMediaById(mediaId);
 
       if (!media) {
         return sendError(

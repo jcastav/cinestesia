@@ -12,7 +12,7 @@ const seedMovie = {
   releaseYear: 2008,
   runtimeSeconds: 596,
   publicationStatus: "PUBLISHED" as const,
-  productionStatus: "COMPLETED",
+  productionStatus: "ENDED",
   posterUrl: null,
   backdropUrl: null,
 };
